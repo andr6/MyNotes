@@ -1,0 +1,82 @@
+MITM:(Man In The Middle)
+====
+Classification of MITM Attacks:
+	LAN:(Local Area Network)
+		ARP Poisoning
+		DNS Spoofing
+		STP Mangling
+		Port Stealing
+	From Local To Remote:(Through a Gateway)
+		ARP Poisoning
+		DNS Spoofing
+		DHCP Spoofing
+		IRDP Spoofing
+		ICMP Redirection
+		Route Mangling
+	Remote:
+		DNS Spoofing
+		Traffic Tunneling
+		Route Mangling
+Basics:
+	Sniffing:
+		Process of monitoring and capturing all data packets that are passing through a computer network using packet sniffers. 
+		Data packets captured may contain sensitive information such as creds, credit card information, etc.
+		A good way to prevent it is encrypting your traffic. It depends on the network structure. In a network that computers communicate with each other via a hub, it is very insecure and easy to sniff. Switches and routers use other architecture to prevent it, but it is not impossible.
+		Types of Sniffing:
+			Active Sniffing:
+				Its conducted on a switched network. Switches uses MAC to forward information to their intended destination ports. Attackers take advantage of this by injecting traffic into the LAN to enable sniffing. 
+			Passive Sniffing:
+				It uses hubs instead of switches. All an attacker needs to do is to simply connect to LAN and they are able to sniff data traffic in that network. 
+	Spoofing:
+		Spoofing attacks are also referred to as man-in-the–middle attacks since the attacker gets in the middle of a user and a system. 
+	Sniffing v/s Spoofing:
+		In sniffing, attacker listens into data traffic and captures data packets using packet sniffers.
+		In spoofing, attacker steals credentials of a user and uses them in a system as a legitimate user.
+
+
+	ARP:(Address Resolution Protocol)
+		It allows the network to translate IP addresses into MAC addresses.
+		When one host using IP on a LAN is trying to contact another host, it needs the MAC address of another host.
+		For that, it first looks in it's ARP CACHE to see if it already has the MAC address of another host
+			to see ARP cache in windows:
+				cmd>arp –a
+		But, if MAC of another host is not present, it broadcasts out an ARP request with IP of another host in it and asking for MAC. 
+		When the another host hears the ARP query it will respond with it's MAC address and a conversation will begin using IP.
+		A switch looks at the data sent to it and tries to only forwards packets to its intended recipient based on MAC address. Switched networks are more secure and help speed up the network by only sending packets where they need to go. There are ways around switches though.
+ARP Poisoning:(a.k.a. ARP Spoofing)
+	Basics:
+		HOST-1 => ALAN
+		HOST-2 => BRIAN
+		Basically, the attacker tells Alan's box that he has the IP that corresponds to Brian's box and tells Brian's box that he has the IP that corresponds to Alan's box. By doing this the Attacker receives all network traffic going between Alan and Brian. Once Attacker Arpspoofed his way between the two machines he can sniff the connection with whatever tool he may like (TCPDump, Ethereal,  Ngrep, etc.)
+		By arpspoofing between a machine and the LANs GATEWAY he can see all the traffic it's sending out to the Internet.
+	Cain and Abel:(Windows)
+	Ettercap:(linux)
+		It is a packet sniffer
+		Basics:
+			Ettercap has 2 sniff modes:
+				Unified Sniffing:
+				Bridged Sniffing
+		ettercap -G => ettercap graphics
+			sniff-> unified sniffing-> select interface
+			hosts-> scan for hosts
+			hosts-> hosts list
+			ur ip-> target-1
+			victim-> target-2
+			mitm-> arp spoofing-> start -> sniffing
+		ettercap CLI:
+			ettercap -I => list interfaces
+			ettercap -i eth0 => select eth0 interface
+			flags:
+				-T => text interface
+				-q => quiet mode
+				-M => perform MITM
+			ettercap -TqM drp: remote /10.0.1.1/ /10.0.1.7/
+	Bettercap:
+			-T: targets(IP or MAC)
+	    	-I: interface
+	    	-G: specify gateway address (usually automatic)
+	    	--no-discovery: don’t search for hosts (use ARP cache)
+	    	-ignore: ignore ADDRESS1,ADDRESS2
+	    	--check-updates:
+Evilgnix2:
+Xerosploit:

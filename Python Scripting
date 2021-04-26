@@ -1,0 +1,19 @@
+PYTHON:
+======
+Scripting:
+	it means writing some code and executing it by double-cliking the file
+	example:
+		#!/bin/python3 => tells linux how to execute this script
+		print("hello! world")
+socket MODULE:
+	socket=> internal end-point to send or recieve data
+	sock_stream when TCP
+	sock_degram when UDP
+	socket.AF_INET => ipv4
+	socket.SOCK_STREAM => port
+sample programe:
+	import socket
+	host = '127.0.0.1'
+	port = 7777
+	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	s.connect((host,port))

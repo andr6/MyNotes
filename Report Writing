@@ -1,0 +1,94 @@
+Report Writing:
+==============
+Report #1: The lab report must be submitted in a separate PDF file, archived with your exam report.
+	PWK Lab Report:
+		You must successfully compromise no less than ten (10) machines in the labs and document all of your steps as illustrated in the "Offensive Security Lab and Exam Penetration Report: Section 3 - Methodologies" template. You may choose to include more than 10 machines in your report, however this will not provide any additional points to your final exam score.
+		All Information provided regarding the machines' configurations or exploits used must be correct
+		Each machine's proof.txt must be shown in a screenshot that includes the contents of the file, as well as the IP address of the target by using ipconfig or ifconfig
+		Machines which are clones may only be used once
+		Offensive Security Complete Guide machines may not be included in your report: Alpha Beta
+		All vulnerabilities exploited within the lab report must be unique. You may not use the same exploit against multiple machines
+		You must successfully attack ten different targets. Documenting multiple attack vectors for the same machine will not grant additional points.
+	Exercise Report:
+		The course exercises must be appended to the end of your lab report
+		The course exercises must ALL be complete and correct, with the exception of those which explicitly state otherwise
+		DOCUMENTATION OF EXERCISES FOR THE FOLLOWING SECTIONS ARE NOT REQUIRED FOR PWK:
+			The Kali Training Site
+			HTTP Service
+			dpkg
+			Reverse Shell Scenario
+			Recon-ng
+			Client Fingerprinting
+			Upgrading a Non-Interactive Shell
+			Uploading Files with TFTP
+			Standard Wordlists
+			Brute Force Wordlists
+			HTTP htaccess Attack with Medusa
+			Remote Desktop Protocol Attack with Crowbar
+			SSH Attack with THC-Hydra
+			HTTP POST Attack with THC-Hydra
+			Retrieving Password Hashes
+			Password Cracking
+	Points:
+		5 (five) bonus points may be earned by submitting your lab report and course exercises
+Report #2: Penetration test Report of the OSCP Exam labs
+	Sample:
+		https://github.com/juliocesarfort/public-pentesting-reports
+		https://github.com/tjnull/TJ-JPT
+		https://github.com/whoisflynn/OSCP-Exam-Report-Template	
+		https://github.com/SerpicoProject/Serpico
+		https://github.com/noraj/OSCP-Exam-Report-Template-Markdown
+Final Report:
+	Report #1 - Penetration test Report of the PWK labs
+	Report #2 - Penetration test Report of the OSCP Exam labs
+The reports must be in PDF format and include screenshots and descriptions of your attacks and results.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+For Exam:
+
+For Notes	
+	Tips on using KeepNote:
+		Take a screenshot by pressing CTRL-INSERT.
+		Run KeepNote off an SSD hard drive otherwise it can be sluggish.
+		If possible, don't attach files into KeepNote or it might corrupt your notes. Try to keep sploits/files in a separate directory on your PC.
+		Spend a few hours setting up your folder structure.
+		Make frequent backups. I backup my KeepNote notebook every 3-4 hours
+	Gitbook:
+Lab Report:
+Exercise Report:
+The exam and lab reports were written in LaTeX

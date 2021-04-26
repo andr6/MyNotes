@@ -1,0 +1,113 @@
+bash scripting:
+==============
+Basics:
+	#! => shebang => it tells interpreter to leave this line
+	#! /bin/bash => it tells that this script is a bash shell (1st line)
+	the scripts are saved as file.sh
+Comments:
+	#this is a comment
+variables:
+	name="robot"
+		echo "hello $name" => hello robot
+		echo "${name}12" => robot12
+		echo $name => robot
+		echo '$name' => $name
+executing shell commands from script:(aka Command Substitution)
+	var_name=$(command)
+	user=$(whoami)
+	echo "directory is $(pwd)"
+	echo "directory is `pwd`"
+cli arguments:
+	$1-$9 => 1st 9 variables passed
+	special bash arguments:
+		$0 => name of script
+		$? => exit status of the last process
+		$RANDOM => gives a random number
+		$$ => PID of current script
+		$USER => username
+		$hostname => hostname
+Reading user input:
+	Command-line arguments are a form of user input, but we can also capture interactive user input while a script is running with the read command.
+	read variable_name
+	read -p 'print this' var_name
+	read -sp 'print this' var_name => ideal for entering paword, it dont shows what is being entered, -s stands for 'silent'
+conditional operators:
+	&& => and
+	|| => or
+	TRUE => 0
+	FALSE => NON-ZERO
+	strings:
+		!=
+		=
+	integers:
+		-eq
+		-ne
+		-gt
+		-lt
+		-ge
+		-le
+statements:
+	if:
+		if [ $age -lt 16]
+		then
+			echo $age
+		fi
+	else:
+		if [ $age -lt 16]
+		then
+			echo $age
+		else
+			echo 10
+		fi
+	elif:
+		if [ $age -lt 16]
+		then
+			echo $age
+		elif [ $age -gt 60]
+		then
+			echo 100
+		else
+			echo 10
+		fi
+loops:
+	for:
+		for bash script:
+			for ip in $(seq 1 10)
+			do 
+				nmap 10.10.10.$ip
+			done
+		single liner:
+		for ip in {1..10}; do nmap 10.10.10.$ip; done
+	while:
+		counter=1
+		while[$counter -le 10]
+		do
+			nmap 10.10.10.$counter
+			((counter++)) # it uses (()) double-paranthesis construct to perform arithemtic expansion
+		done
+functions:
+	definition:
+		hello () {
+			echo "hello"
+		}
+	usage:
+		hello
+		echo " function is $(hello)"
+	passing args to function:
+		p1 () {
+			echo "hello $1"
+		}
+		p1 $RANDOM
+	returning value from function:
+		p2 () {
+			return $RANDOM
+		}
+		p2
+	local variables:
+		name = x
+		p3 () {
+			local name = y
+			echo $name
+		}
+		p3
+		echo $name

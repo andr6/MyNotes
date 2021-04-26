@@ -1,0 +1,146 @@
+MOBILEDIT:-
+===========
+
+(A)ANDROID:-
+   =======
+   step-1=> enabling stay awake option 
+   ======
+   go to sestings=> more settings=> system=>about_phone=>click on build_number/software_version 7 times to enter into developer mode=> go back to about_phone=> developer_options=> turn on usb_debugging and stay_awake option.
+   step-2=> installing drivers for phone
+   ======
+   go to https://www.mobiledit.com/downloads#phone-drivers
+   download driver for specific phone
+   step-3=>
+   ======
+   click OK on any pop-up which upon connecting phone on pc and click on "tranfer files" option.
+
+   NOTE:- Don't connect phone to your PC prior to step 2! as if we cinnect it windows may automatically install it's driver which can cause problem.
+
+   NOW, connecting phone through wifi=>
+   	step-1:- install "Phone Copier - MOBILedit" from google play on the phone 
+   	step-2:- Make sure your Wi-Fi is turned on and you are connected on the same network.
+   	step-3:- Run MOBILedit and click on the Connect button. Select Phone – Wi-Fi Connection and then enter the IP address as displayed on the phone.
+   	step-4:- click finish and boom , we have connected sucessfully.
+
+(B)APPLE(iOS):-
+   ==========
+   (iTunes should be installed firstly)
+   step-1=> installing drivers
+   ======
+   connect phone=> go to device manager(opening it run=>"devmgmt.msc")=>portable devices=> your iphone/ipad=>right click=>"update device software"=> "browse my computer for device software"=>"Let me pick from a list of device drivers on my computer."=>Have Disk(if not available "Have Disk" option=> select mobile phone or storage device=> click next we will see have disk option)=> browse=> C:\Program Files\Compiled Driver Disc (Full)\Apple\amd64(64 bit) or \i386(32 bit)=> usbaapl64(64 bit) or usbaapl (32 bit)=> click open then finish.
+
+   NOTE:- in case it dont works, go to devicemanger=>Universal Serial Bus devices=>Apple Mobile Device USB Composite Device(if it's note availabe look on next note )=> rightclick=> properties=> driver=> roll back driver=>close properties=> restart=> follow step-1 again.
+
+   NOTE:- (above NOTE method not works only for 64-bit, for that follow this note)
+   		  win10=>mainly with new update of iTunes this problem comes so, go to taskmanager=> services=> stop "Apple Mobile Device service"
+          win7/8=> search sor services.
+   step-2=> unlock iPhone/iPad
+   ======
+   if we dont know the passcode, then connect iphone (note iTunes should be installed)=>goto "C:\ProgramData\Apple\Lockdown" copy file and paste on desktop=> open mobileditforensicsexpress=> ur iphone will be shown in there=>click on upload lockdown file=> upload the file which we copied on desktop and boom our iPhone is connected.
+   step-3=> Disabling the "Auto-Lock"
+   ======
+   For iOS 10 and higher: Settings > Display & Brightness > Auto-Lock > Never
+   For iOS 9.x and earlier: Settings > General > Auto-Lock > Never
+
+(C)BLACKBERRY:-
+   ==========
+
+---------------------
+USING MOBILEDIT FORENSIC EXPRESS:-
+================================
+=>basics:-
+%understanding recovery:-
+    it is a small piece of software that runs in the recovery partition on your device. once we boot into that partion we can see/change files on our device without any authenciation as android is not booted.
+    every device by deafult has a recovery prog but user cant access it so we change it with "twrp" which gives us access of diff parts of our device.
+    (twrp=> Team Win Recovery Project- this is the software that allows you to manually install ROMs)
+    TWRP even comes with built-in file manager with unlimited root access so you can modify, add or delete any system files manually. The most important thing is that TWRP has a working MTP connection and ADB enabled which allows us to extract almost all data stored on your device and even create physical images from them.
+    ("flashing twrp"=>it means to install twrp)
+%rooting:-
+	it gives us administrator right to change/remove anything in our phone.
+%bootloader:-
+	a prog which is responsible for loading an os
+     type-1:- locked bootloader= it only boots os of which it approves of
+     type-2:- unlocked bootloader=
+\\\\\\\aim:- remove password from android device\\\\\\\\\\\\\\\\\\\
+unlock bootloader=> install twrp=> use to remove any lock screen
+=> rooting phone
+   why=> bcoz we need to recover deleted data so we need to root our phone.
+   how-to root:- KINGOROOT(App) or XDA developers(online community) 
+=> booting into recovery mode:-
+   how-to=> hot-key combinations=> search google "hot-key combinations (manufacturer name)"
+=> unlocking BOOTLOADER
+   =>need= allows us to install custom Firmware i.e. helps in adding twrp.
+   how-to:- 
+   step-1:- Install ADB and Fastboot (Minimal ADB and Fastboot) 
+   (adb=> Android Debug Bridge, allows the user to communicate and control their Android device using command line)
+   step-2:- developer options(in settings of phone)=>turn on "OEM unlock" & "usb debugging"  
+   (OEM=> Original Equipment Manufacturer)
+   step-3:-connect phone, open cmd, go to where fastboot and adb is intalled
+   step-4:-type:- "adb devices"
+   (to see if your device is recognized by ADB)
+   step-5:-adb reboot bootloader
+   (reboots device to fastboot mode)
+   step-6:-type-"fastboot OEM unlock"
+   (command to unlock bootloader on supported devices)
+   step-7:-type-"fastboot reboot"
+   (to reboot again and boom we are done)
+=>once we unlocked it, we need to install twrp
+   => process for Samsung devices:-
+   step-1:- developer options(in settings of phone)=>turn on "OEM unlock" & "usb debugging"
+   step-2:- Odin 3.09 or newer (on pc)
+   step-3:- restart phone into "Download mode" by turning it off and holding the volume down,home,power buttons for a few seconds.
+   step-4:- start odin & connect phone to pc
+   step-5:- once it recognizes a new device, make sure that "re-partition" option is disabled.
+   step-6:- click on ap and choose path for your twrp image (we need to download it )
+   (link:- https://dl.twrp.me/twrp/)
+   => process for non-Samsung devices:-
+   step-1:- enable "usb debugging" in phone
+   step-2:- connnect phone (only when adb and fastboot are installed)
+   step-3:- move to their installation folder in cmd
+   step-4:- type:-"adb devices"
+   step-5:- type:-"adb reboot bootloader" 
+   step-6:- copy twrp image where adb and fastboot is installed
+   step-7:- rename it to "twrp.img" (just for ease of using it)
+   step-8:- type:-"fastboot flash recovery twrp.img" 
+   (command to flash any recovery image)
+   step-9:- type:-"fastboot reboot"
+=>now, using twrp:- to remove any lockscreeen on any android device
+   step-1:- upon rebooting=> click on advanced=>file manager
+   step-2:- go to data\system
+   step-3:- find the file having ".key" as it extension=> long press onit untill some options appear
+   step-4:- click on "rename file"
+   step-5:- save it as itsname.key.old
+   step-6:- click on "reboot system"
+
+--------------------------------------------------------------------------------------------------
+JAILBREAKING:- (rooting of an appple phone)
+==============
+need:- for forensics:- to extract more and more data.
+how-to:-
+(a)Tethered - This method requires you to connect your iPhone to your computer and use an external application to jailbreak it. Once you restart your iPhone, the jailbreak is undone, 
+(b)Semi-tethered - This method doesn't require you to connect your iPhone to a computer in order to jailbreak it, however the jailbreak is still undone every time you reboot your device
+(c)Untethered - This method doesn't necessarily require a computer to perform a jailbreak on your device, and also modifies the iOS on a deeper level which means that no matter how many times you reboot your device, it stays jailbroken until you manually "unjailbreak" it.
+=> apps to jailbreak an apple device:- Pangu or Cydia Impactor
+     (https://downloadcydia.org/cydia-impactor/)
+
+now, using the software:-
+=> connecting phone:-
+how to connect it:- (also above i have already shown how to connect phones)
+ click on "(i)how to connect phone" button=> click on next=> select platform=>select brand=> select model=> it will show us the walk through of how to conect the phone
+once we connect phone=> click on next=> it might show a warning if our phone is not rooted that we might get some less data.
+then, we come to export menu
+types of export:-
+(a)specific selection:- usefull in law enforcement. it collects data b/w specified dates.
+(b)full content:- collect everything
+...... and some other
+then we come to a forum to enter data, enter the correct timezone
+then we need to specify the output format:-
+(a)reports:-
+	1.html report
+	2.pdf report
+	3.ms excel report
+(b)exports:-
+	1.mobiledit backup:- it contains a backup which can be browsed 
+	and others
+then we come to photo recognizer menu (see it and u will understand it)
+click on next and boom we are done in our left side we will see a procees going on showing us how much report has been processed.

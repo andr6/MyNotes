@@ -1,0 +1,27 @@
+VEIL:
+====
+	Parts:
+		Evasion => AV Evasion
+		Ordance => Shellcode Generation
+	Evasion:
+		it has a lot of .py payloads for powershell/python/ruby/go/perl
+		Naming of Payloads:
+			payload_language/shell_type/payload_obfuscation
+			shell_type:
+				Meterpreter
+				Shellcode Inject:
+					They are designed to load shellcode into memory and execute it. These payloads give you the ability to write your own custom shellcode and run it. You can use these payloads to automatically create a user account on the system, spawn calc.exe, or anything you want via the shellcode you write or use.
+					We can generate the shellcode via msfvenom or Ordance
+		which language payload to chose?
+			Lower-Level Language => the better AV evasion
+				C>Golang
+			Higher-Level Language:
+				Ruby/Python/Powershell/Perl
+		Chose the payload
+		choose LHOST/LPORT
+		it will create 3 files:
+			payload.exe => executable payload
+			payload.rc => metasploit file
+			payload.c => source code
+	Ordance:
+		Used to generate shellcode for shellcode_inject payloads

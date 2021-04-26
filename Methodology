@@ -1,0 +1,30 @@
+Methodology:
+===========
+
+port importance/significance:(higher -> more important)
+	web port(http/https/)
+	SMB
+	FTP
+	LDAP
+	
+Other ports necessary for recon:
+	DNS
+	SSL_cert(HTTPS)
+
+combination of ports:
+	dns + kerberos + ldap => it CONFIRMS Windows AD DomainController
+	dns + http => 1st pentest dns(zone transfer) to get domain names
+Windows AD:
+	SMB => there are always some ANONMYOUS shares open
+ldap:
+	1. it indicates AD
+	2. juicy data enumeration
+smb share:
+	1.some juicy file available
+	2.shell upload if RW available
+	3.samba exploit (eternal blue)
+
+in case we have ADMIN_USER creds, but no ssh/webport/winrm and we have smb
+	psexec
+	smbexec
+	wmiexec
