@@ -32,7 +32,7 @@ BASICS:
 				it has most updated information about user login and authenciation
 			LDAP:
 				DC uses ldap to query AD
-				LDAP is an API which provides search functonality against AD
+				LDAP is an Active Directory Service Interfaces (ADSI) provider (essentially an API) that supports search functionality against an Active Directory
 				LDAP://HostName[:port][/DN]
 					DN => Distinguished Name
 		Data Store:
@@ -502,7 +502,7 @@ POST-Enumeration:
 			net user user_name /domain => shows info about the user related to domain
 			net group /domain => shows groups in a domain
 		Manual Enumeration in powershell using Get-ADUser:(Mordern Approach)
-			Note:
+			Note: 
 				cmdlets like Get-ADUser are only installed by default on domain controllers and while they may be installed on Windows workstations from Windows 7 and up, they require administrative privileges to use.
 			Get-NetDomain => info about current domain
 			Get-NetDomain -domain 'domain_name'
@@ -513,8 +513,69 @@ POST-Enumeration:
 			Get-NetComputer -Ping => show live hosts
 			Get-NetGroup
 			Get-NetGroupMember -GroupName "Domain Admins"
-		Manual Enumeration in poweshell without Get-ADUser:(Mordern Approach)
-			Here, we develop a script using  
+		Manual Enumeration using Powershell Script(.ps1):(Mordern Approach)
+			Here, we develop a script using powershell. This script will query the network for the name of the Primary domain controller emulator and the domain, search Active Directory and filter the output to display user accounts, and then clean up the output for readability.
+				Primary domain controller emulator:
+					Its one of the five operations master roles or FSMO roles performed by domain controllers.
+					domain controller with PdcRoleOwner property will always have the most updated information about user login and authentication, thats why its called the Primary domain controller emulator
+			Script to enumerate all users:(Main Script)
+				Script:
+					$domainObj = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
+					$PDC = ($domainObj.PdcRoleOwner).Name
+					$SearchString = "LDAP://"
+					$SearchString += $PDC + "/"
+					$DistinguishedName = "DC=$($domainObj.Name.Replace('.', ',DC='))"
+					$SearchString += $DistinguishedName
+					$Searcher = New-Object System.DirectoryServices.DirectorySearcher([ADSI]$SearchString)
+					$objDomain = New-Object System.DirectoryServices.DirectoryEntry
+					$Searcher.SearchRoot = $objDomain
+					$Searcher.filter="samAccountType=805306368"
+					$Result = $Searcher.FindAll()
+					Foreach($obj in $Result)
+					{
+						Foreach($prop in $obj.Properties)
+						{
+							$prop
+						}
+						Write-Host "------------------------"
+						}					
+				Explanation of script:
+					$domainObj contains output of:
+						[System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain() => this gives domain_name, name of dc
+					$PDC contains hostname of dc having PdcRoleOwner property
+					$DistinguishedName is DN
+						$DistinguishedName = DC=domain,DC=com
+					$SearchString is ldap://hostname:port/DistinguishedName
+					$Searcher = New-Object System.DirectoryServices.DirectorySearcher([ADSI]$SearchString)
+						$Searcher is usage of DirectorySearcher() class, which uses LDAP path ($SearchString)
+					$Searcher.SearchRoot = $objDomain
+						It shows that the search root of $Searcher starts from $objDomain
+					Using Filter:
+						without them, the script will show every object
+						$Searcher.filter="samAccountType=805306368":
+							we set filter via samAccountType property having value of 805306368 => this will filter all domain users
+					FindAll() => to conduct a search and find all results
+					using two foreach we applied a double loop to print all properties of users along with usernames
+			Script to enumerate all groups:
+				Script:
+					$domainObj = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
+					$PDC = ($domainObj.PdcRoleOwner).Name
+					$SearchString = "LDAP://"
+					$SearchString += $PDC + "/"
+					$DistinguishedName = "DC=$($domainObj.Name.Replace('.', ',DC='))"
+					$SearchString += $DistinguishedName
+					$Searcher = New-Object System.DirectoryServices.DirectorySearcher([ADSI]$SearchString)
+					$objDomain = New-Object System.DirectoryServices.DirectoryEntry
+					$Searcher.SearchRoot = $objDomain
+					$Searcher.filter="(objectClass=Group)"
+					$Result = $Searcher.FindAll()
+					Foreach($obj in $Result)
+					{
+						$obj.Properties.name
+					}			
+				Explanation of script:
+					For the left out explanation, read Explanation for Script to enumerate all users
+					The filter attribute helps to filter the output to just contain groups
 	If we have Pass/Hash:
 		GetADUsers.py:
 			User Enumeration
