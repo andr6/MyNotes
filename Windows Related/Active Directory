@@ -657,18 +657,7 @@ POST-Enumeration:
 						Find Principles with DCSync Rights
 POST-Exploitation:
 	token impersonation => same as that of windows privesc
-	Grabbing Clear Text Passwords From Memory:
-		WCE:(Windows Credential Editor)
-			It allows to list windows logon sessions and add/delete/change/list associated crentials(LM/NT hash,kerbros tickets, passwords)
-			wce -l => list logon sessions and hashes
-			wce -w => to dump clear text passwords
-			issue:
-				can easily invoke antivirus/windows_defender
-		mimikatz:
-			When we run mimikatz, it gives us a mimikatz-like shell, from where we can run commands.
-			privilege::debug
-			sekurlsa::logonPasswords full
-		NOTE: we need privileges tp run both WCE and mimikatz
+	Credentials mining: see Windows Privesc sheet
 	GPP:(MS14-025)
 		It allowed admins to create Domain Policies using embedded credentials. These credentials were encrypted using a secret key (AES) and placed in "cPASSWORD" file in Groups.xml. Groups.xml can be read by can user.
 		\\[Domain Controller]\SYSVOL\[Domain]\Policies\Groups.xml
