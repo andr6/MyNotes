@@ -1,8 +1,8 @@
 # MyNotes
-Repo of my infosex notes
+Repo of my infosec notes
 
 You all can contact me on twitter. 
 
-Whoami? just a kid high on ritalin lol
+Whoami? idk
 
-Anyone is allowed to use my notes anywhere for any purposes but i must recieve proper credit. And if ur from FBI, f$ck u bitch!
+Anyone is allowed to use my notes anywhere for any purposes but i must recieve proper credit. 
