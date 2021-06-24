@@ -1,0 +1,168 @@
+AV Bypass:
+=========
+Status wrt to OSCP:
+	Based on reviews I’ve read, I don’t think it’s required for the exam, but bypassing AV does have its own dedicated chapter in the course work.
+Basics:
+	Methods of Detecting Malicious Code:
+		Signature Based Detection:
+			An antivirus signature is a continuous sequence of bytes within malware that uniquely identifies it.
+			we can bypass signature-based detection by simply changing or obfuscating the contents of a known malicious file in order to break the identifying byte sequence (or signature).
+		Heuristic Based Detection:
+			This method relies on various rules and algorithms to determine whether or not an action is considered malicious.
+			This is often achieved by stepping through the instruction set of a binary file or by attempting to decompile and then analyze the source code. The idea is to look for various patterns and program calls (as opposed to simple byte sequences) that are considered malicious.		
+		Behavioral Based Detection:
+			Here, AV dynamically analyzes the behavior of a binary file.
+			This is often achieved by executing the file in question in an emulated environment, such as a small virtual machine, and looking for behaviors or actions that are considered malicious.
+	Bypassing Antivirus Detection:
+		On-Disk Evasion:
+			Packers:
+			Obfuscators:
+			Crypters:
+			Software Protectors:
+		In-Memory Evasion:
+AMSI:(Windows Antimalware Scan Interface)
+	First introduced in Windows 10. 
+	This is an interface that applications and services are able to utilise, sending “content” to an anti-malware provider installed on the system (e.g. Windows Defender)
+	When attempting to execute malicious PowerShell scripts, AMSI will use signature-based detection to identify malicious activity.
+Windows Defenders:
+	powershell -e
+APPLOCKER Bypass:
+	Applocker blocks execution of scripts in cmd and PS
+	github => ultimateapplockerbypasslist by api0cradle
+Change Powershell version:
+	Advantages:
+		Sometimes, some functions are disabled on current version of powershell, so we downgrade the version of powershell to version2 to access those functions
+	To see current powershell version:
+		PS>$psversiontable
+	To change Powershell version:
+		cmd> powershell -version 2.0
+		PS> powershell -version 2.0
+Why powershell is first choice to do AV Evasion:
+	1. PowerShell has ability to interact with the Windows API. This allows us to implement the in-memory injection process in a PowerShell script.
+		Windows API protocols allow interaction with the Windows OS
+	2. One of the main benefits of executing a script rather than a PE is the fact that it is difficult for antivirus manufacturers to determine if the script is malicious or not as it’s run inside an interpreter and the script itself isn’t executable code.
+PE Injection:(Portable Execute Injection)
+	aka In-Memory Injection
+	An in-memory attack does not rely on a file written to disk. It lives in a computer’s RAM, which we call ‘volatile memory’.
+	This also means the malicious content is removed once the computer is rebooted.
+	It has four types:
+		Remote Process Memory Injection:
+			This technique attempts to inject the payload into another valid PE that is not malicious.
+			The most common method of doing this is by leveraging a set of Windows APIs.
+				First, we would use the OpenProcess function to obtain a valid HANDLE to a target process that we have permissions to access.
+				After obtaining the HANDLE, we would allocate memory in the context of that process by calling a Windows API such as VirtualAllocEx (VirtualAllocEx reserves or changes a region of memory)
+				Once the memory has been allocated in the remote process, we would copy the malicious payload to the newly allocated memory using WriteProcessMemory. (WriteProcessMemory writes data to an area of memory in a specified process)
+				After the payload has been successfully copied, it is usually executed in memory in a separate thread using the CreateRemoteThread API. (CreateRemoteThread creates a thread in the address space of another process)
+		Reflective DLL Injection:
+			DLL Injection:
+				Normally, When you need to load a DLL in Windows, you need to call LoadLibrary, that takes the file path of a DLL and loads it in to memory.
+			Reflective DLL Injection:
+				This refers to loading a DLL from memory rather than from disk.
+				Windows doesn’t have a LoadLibrary function that supports this, so to get the functionality you have to write your own, omitting some of the things Windows normally does, such as registering the DLL as a loaded module in the process , potentially bypassing DLL load monitoring.
+
+
+
+
+		Process Hollowing:
+			attackers first launch a nonmalicious process in a suspended state. Once launched, the image of the process is removed from memory and replaced with a malicious executable image. Finally, the process is then resumed and malicious code is executed instead of the legitimate process
+		Inline hooking:
+Bypassing Executable
+Bypassing ps1:
+Bypassing py:
+Bypassing Shellcode:
+
+
+Shellter:
+	Its used to hide a payload in an executable.
+	Installation:
+		apt install shellter
+		apt install wine
+	Usage:
+		First, set the operation mode:
+			It has two operation modes:
+				Automatic:
+				Manual:
+					In Manual mode, the tool will launch the PE we want to use for injection and allow us to manipulate it on a more granular level.
+		Then, select the target PE:
+		Then, select "enable stealth mode":
+			This will attempt to restore the execution flow of the PE after our payload has been executed
+		Then, select the payload type
+Veil-Evasion:(apt-get install veil-evasion)(We wont use it as its limited to msf)
+	Basics:
+		It has two Parts:
+			Evasion => AV Evasion
+			Ordance => Shellcode Generation	
+		Note:
+			only for msf
+	Usage:
+		Evasion:
+			it has a lot of .py payloads for powershell/python/ruby/go/perl
+			Naming of Payloads:
+				payload_language/shell_type/payload_obfuscation
+				shell_type:
+					Meterpreter
+					Shellcode Inject:
+						They are designed to load shellcode into memory and execute it. These payloads give you the ability to write your own custom shellcode and run it. You can use these payloads to automatically create a user account on the system, spawn calc.exe, or anything you want via the shellcode you write or use.
+						We can generate the shellcode via msfvenom or Ordance
+			which language payload to chose?
+				Lower-Level Language => the better AV evasion
+					C>Golang
+				Higher-Level Language:
+					Ruby/Python/Powershell/Perl
+			Chose the payload
+			choose LHOST/LPORT
+			it will create 3 files:
+				payload.exe => executable payload
+				payload.rc => metasploit file
+				payload.c => source code
+		Ordance:
+			Used to generate shellcode for shellcode_inject payloads
+UniByAv:(https://github.com/Mr-Un1k0d3r/UniByAv)
+	UniByAv is a simple obfuscator that take raw shellcode and generate executable that are Anti-Virus friendly.
+	Installation:
+		git clone https://github.com/Mr-Un1k0d3r/UniByAv.git
+		apt install mingw-w64
+		apt install wine
+Chimera:
+	Chimera is a PowerShell obfuscation script designed to bypass AMSIs.
+	It digests malicious PS1's known to trigger AV and uses string substitution and variable concatenation to evade common detection signatures.
+	Installation:
+		sudo apt-get update && sudo apt-get install -Vy sed xxd libc-bin curl jq perl gawk grep coreutils git
+		sudo git clone https://github.com/tokyoneon/chimera /opt/chimera
+		sudo chown $USER:$USER -R /opt/chimera/; cd /opt/chimera/
+		sudo chmod +x chimera.sh;
+		./chimera.sh
+	usage:
+		flags:
+			-l => to increase the degree/level of obfuscation
+				1
+				2
+				3
+				4
+			-v => substitute variable names with random strings
+			-v worslist.txt => Detected variables like $encoding and $writer are substituted with random strings from the provided wordlist
+			-t => substitute data types
+			-j => substitute function names
+			-c => replace comments with arbitary data
+			-i => insert arbitary comments into every line
+			-h => convert attackers ip to hex
+			-d => Converts the payload to decimal format, it usually increases the likeliness of evading AMSI
+			-r => will randomize the character punctuations and is automatically applied with -d
+			-f shell.ps1
+			-o out.ps1
+			-e => Examine the obfuscated file when the process is complete
+PyObfx:
+	Python Obfuscation tool
+	Installation:
+		git clone https://github.com/PyObfx/PyObfx.git && cd PyObfx/
+		pip install -r requirements.txt	
+	Usage:
+		flags:
+			-f => file to be obfuscated
+			-p <pack> => To pack the file after obfuscation
+				Available packers:
+					bz2
+					gz
+					lzma
+			-o out.shell
+ebowla:
