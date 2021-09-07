@@ -1,96 +1,303 @@
 Networking:
 ==========
-OSI MODEL:
-	layer7=> Application => HTTP/SMTP
-	layer6=> Presentation => media files(mov/jpeg)
-	layer5=> Session => session management
-	layer4=> Transport => TCP/UDP
-	layer3=> Network => router => ip
-	layer2=> Data => physical => switches communicate over physical adress
-	layer1=> Physical => data cables
-TCP header:
-    0                   1                   2                   3   
-    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |          Source Port          |       Destination Port        |(16+16)
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                        Sequence Number                        |(32)
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                    Acknowledgment Number                      |(32)
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |  Data |       |C|E|U|A|P|R|S|F|                               |
-    | Offset|  Res. |W|C|R|C|S|S|Y|I|            Window             |(4+6+6+16)
-    |       |       |R|E|G|K|H|T|N|N|                               |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |           Checksum            |         Urgent Pointer        |(16+16)
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                    Options                    |    Padding    |()
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                             data                              |(32)
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-	TCP flags:(14th byte)
-		they are used within TCP packet to indicate a particular connection state or provide additional information. Therefore, they can be used for troubleshooting purposes or to control how a particular connection is handled. TCP flags are defined in the 14th byte of the TCP header and are of 16 bits.Each TCP flag is 1 bit in size.
-		commonly used => SYN/ACK/FIN.
-		1.SYN => synchronisation flag, first step in establishing a 3-way handshake between two hosts. Only the first packet from both the sender and receiver will have this flag set.
-		2.ACK => acknowledgment flag, used to acknowledge successful receipt of packet. receiver sends both ACK and SYN in second step of the 3-way handshake process to tell the sender that it received its initial packet. All packets sent and received after the initial 3-way handshake will have the ACK flag set.
-		3.FIN => finished flag, means that there is no more data from the sender. Therefore, it is used in the last packet sent from the sender.
-		4.URG => urgent flag, used to notify receiver to process the urgent packets before processing any other packet.
-		5.PSH => push flag, its similar to URG flag. it tells receiver to process these packets as they are received instead of buffering them.
-		6.RST => reset flag, it gets sent from receiver to sender when a packet is sent to a particular host that was not expecting it.
-		Extra flags:
-		ECE => This flag is responsible for indicating if the TCP peer is ECN capable.
-		CWR => 'congestion window reduced' flag, its used by sender to indicate that it received a packet with the ECE flag set.
-		NS => 'nonce sum' flag, its used to protect against accidental malicious concealment of packets from the sender.
-		For TCP headers with a single flag, there is one byte per bit and byte 13 contains the following binary values in decimal:
-			Final (FIN) = 1
-			Sync (SYN) = 2
-			Reset (RST) = 4
-			Push (PSH) = 8
-			Acknowledgement (ACK) = 16
-			Urgent (URG) = 32
-			Reserved = 64 and 128 (should be zero)
-		If multiple flags are set for the TCP header, the value of byte 13 is the binary sum of the values for all the bits that are set. For example:
-			FIN, ACK = 17 (1 + 16)
-			SYN, ACK = 18 (2 + 16)
-			PSH, ACK = 24 (8 + 16)
-			FIN, PSH = 9 (1 + 8)
-			FIN, PSH, ACK = 25 (1 + 8 + 16)	
-Mac address:
-	xx:xx:xx:xx:xx:xx
-	1st 3 pairs => identifers
-	google=> mac address lookup
-ifconfig output:
-	inet=> ipv4
-	inet6=> ipv6
-	ether=> Mac address
-	netmask=> subnet mask => TELL COMPUTER HOW MANY IPS WE CAN HAVE
-	broadcast=> last ip
-	network id=> first ip
-Important Ports:
-	TCP:
-		21 => FTP
-		22 => SSH => ENCRYPTED version of TELNET
-		23 => TELNET => LOGIN INTO A MACHINE REMOTELY
-		25 => SMTP => mail
-		53 => DNS => ip to hostname
-		80 => HTTP
-		443 => HTTPS
-		110 => POP3 => mail
-		139+445 => SMB => file sharing => SAMBA
-		143 => IMAP => mail
-	UDP:
-		53 => DNS
-		67+68 => DHCP
-		69 => TFTP
-		161 => SNMP
-	GOOGLE=>
-		telnet v/s ssh
-		imap vs pop3 vs smtp
-	NOTE: DNS is present in both TCP & UDP
-Private ip:
-	class A => 10.0.0.0 to 10.255.255.255
-	class B => 172.16.0.0 to 172.31.255.255
-	class C => 192.168.0.0 to 192.168.255.255
+Basics:
+	Terms:
+		MAC:(Media Access Control)
+			Basics:
+				It is a sublayer of Data Link Layer(Layer 2) of OSI Model.
+				Read OSI Model to know about it
+			MAC Address:
+				xx:xx:xx:xx:xx:xx
+				1st 3 pairs => identifers
+				google=> mac address lookup
+		IPv4: Read IP Section
+		IPv6: Read IP Section
+		Channel:
+		Socket:
+			A socket is one endpoint of a two way communication link between two programs running on the network.
+		Proxy:
+		Subnet:
+		Netmask:
+		Traffic:
+		Telemetry:
+		Internetworking:
+			Communication between two different networks
+	Data Transmission:
+		Basics:
+			Terms:
+				Transmission:
+				Cast:
+					It means some stream of packets is being transmitted to the recipient(s) from client(s)
+		Modes:
+			Unicast:(aka one-to-one transmission)
+				Its useful when there is only single sender and single recipient.
+			Broadcast:(aka one-to-all transmission)
+				Types:
+					Limited Broadcast:
+						This is useful when a device in Network-A wants to transfer packet stream to all the devices in Network-A.
+					Direct Broadcast:
+						This is useful when a device in Network-A wants to transfer packet stream to all the devices in Network-B.
+			Multicast:
+				Its useful when there are more than one senders and more than one recipients.
+	Why is networking important for pentesting?
+		In real-world, we attack domains, subnets and whole networks. For that, the first step is to map the network, and for that, we need to have good networking knowledge.
+Network Models:
+	OSI Model:(Open Systems Interconnection Model)
+		Basics:
+			Its a "conceptual model" that characterises and standardises the communication functions of a system without regard to its underlying internal structure and technology.
+			Its an ISO (International Organization for Standardization) Model.
+		Layers:(7)
+			Layer 7:(Application Layer)(aka L7)
+				This layer is the closest to the end-user.
+				It initiates communication between the user and the applications they personally interact with, such as some webapp or email 
+			Layer 6:(Presentation Layer)(aka L6)
+				It takes care of getting data ready for the Layer 7. This includes encrypting and decrypting data.
+				It also compresses data before it sends it to Layer 5.
+			Layer 5:(Session Layer)(aka L5)
+				The session layer makes sure the session is open for a long enough period of time for all the necessary data to be sent through. The session layer then closes the session to prevent expending unnecessary resources.
+				Session:
+					Time between the opening and closing of Dialogue(communication)
+			Layer 4:(Transport Layer)(aka L4)
+				The transport layer creates segments out of the message received from the application layer. Segmentation is the process of dividing a long message into smaller messages.
+				It keeps track of the segments and retransmit those that fail delivery during the transport.
+				It also provides acknowledgement of the successful data transmission and sends the next data if no errors occurred. 
+				Reliability is not a strict requirement within the transport layer thats why UDP protocols such as VOIP are Transport Layer Prtocols
+			Layer 3:(Network Layer)(aka L3)
+				It facilitates data transfer when two NETWORKS(not devices) are communicating with each other.
+				It divides Segements from Layer 4 into smaller pieces called Packets and transfers them. The division of the segments into packets happens on the sender’s device, and they are reassembled on the receiving device.
+				It is responsible for Routing:
+					Figuring out the optimal physical path needed to get the data to its destination
+				Note:
+					If two communicating devices are using the same network, then there is no need for the network layer. In such case, Layer 2 is responsible
+			Layer 2:(Data Link Layer)(aka L2)
+				It facilitates data transfer when two devices present within the same network are communicating with each other.
+				It divides Packets from layer 3 into smaller pieces called Frames.
+				Sub-Layers:
+					MAC:(Media Access Control)
+						aka Medium Access Control
+						Its responsible for controlling how devices in a network gain access to a media and permission to transmit data.
+						This provides MAC Address
+						MAC Table:(aka MAC Forwarding Table)(aka Forwarding Database(FDB))
+					LLC:(Logical Link Control)
+						Its responsible for identifying and encapsulating "network layer protocols", and controls error checking and Frame Synchronization.
+				Data Link Layer Protcols:
+					PPP:(Point-to-Point Protocol)
+			Layer 1:(Physical Layer)(aka L1)
+				It transfers raw data(0's and 1's) via physical equipment such as switches and cable
+	TCP/IP Model:(aka Internet protocol suite)
+		Basics:
+			It is a set of communications protocols used in the Internet and similar computer networks based on OSI Model.
+		Layers:(4)
+			Layer 4:(Application Layer)(aka Process Layer)
+				Its a combination of Session Layer(Layer 5), Presentation Layer(Layer 6) and Application Layer(Layer 7) of the OSI Model.
+			Layer 3:(Transport Layer)(aka Host-To-Host Layer)
+				Its same as Transport Layer(Layer 4) of OSI Model.
+				Its responsible for end-to-end communication and error-free delivery of data. It shields the upper-layer applications from the complexities of data.
+				Transport Layer Protocols:
+					TCP:(Transmission Control Protocol)
+						It provides reliable and error-free communication between end systems by sequencing and segmentation of data.
+						It also has acknowledgment feature and controls the flow of the data through flow control mechanism.
+						It is a very effective protocol but has a lot of overhead due to such features which results increased cost(time)
+					UDP:(User Datagram Protocol)
+						It has no reliability features therefore it failes to provide error free delivery of data.
+						It is the go-to protocol if your application does not require reliable transport as it is very cost-effective.
+						Unlike TCP, which is connection-oriented protocol, UDP is connectionless(aka CL-Mode)
+			Layer 2:(Internet Layer)
+				Its same as Network Layer(Layer 3) of OSI Model.
+				It defines the protocols which are responsible for logical transmission of data over the entire network:
+					IP: Read Network Protocols Section
+					ICMP: Read Network Protocols Section
+					ARP: Read Network Protocols Section
+			Layer 1:(Network Access Layer)(aka Link Layer)
+				Its a combination of Physical Layer(Layer 1) and Data Link Layer(Layer 2) of the OSI Model.
+				It looks out for hardware addressing and the protocols present in this layer allows for the physical transmission of data.
+		TCP Header:
+			Structure:
+			    0                   1                   2                   3   
+			    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2
+			    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			    |          Source Port          |       Destination Port        |(16+16)
+			    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			    |                        Sequence Number                        |(32)
+			    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			    |                    Acknowledgment Number                      |(32)
+			    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			    |  Data |       |C|E|U|A|P|R|S|F|                               |
+			    | Offset|  Res. |W|C|R|C|S|S|Y|I|            Window             |(4+6+6+16)
+			    |       |       |R|E|G|K|H|T|N|N|                               |
+			    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			    |           Checksum            |         Urgent Pointer        |(16+16)
+			    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			    |                    Options                    |    Padding    |()
+			    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			    |                             data                              |(32)
+		    	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			TCP Flags:(aka Control Flags)(aka Communication Flags)(aka Control Bits)
+				Basics:
+					Its the 14th byte
+					they are used within TCP packet to indicate a particular connection state or provide additional information. Therefore, they can be used for troubleshooting purposes or to control how a particular connection is handled. TCP flags are defined in the 14th byte of the TCP header and are of 16 bits.Each TCP flag is 1 bit in size.
+					commonly used => SYN/ACK/FIN.
+					Types:
+						6 Traditional:
+							1.SYN => synchronisation flag, first step in establishing a 3-way handshake between two hosts. Only the first packet from both the sender and receiver will have this flag set.
+							2.ACK => acknowledgment flag, used to acknowledge successful receipt of packet. receiver sends both ACK and SYN in second step of the 3-way handshake process to tell the sender that it received its initial packet. All packets sent and received after the initial 3-way handshake will have the ACK flag set.
+							3.FIN => finished flag, means that there is no more data from the sender. Therefore, it is used in the last packet sent from the sender.
+							4.URG => urgent flag, used to notify receiver to process the urgent packets before processing any other packet.
+							5.PSH => push flag, its similar to URG flag. it tells receiver to process these packets as they are received instead of buffering them.
+							6.RST => reset flag, it gets sent from receiver to sender when a packet is sent to a particular host that was not expecting it.
+						Extra flags:
+							1. ECE => This flag is responsible for indicating if the TCP peer is ECN capable.
+							2. CWR => 'congestion window reduced' flag, its used by sender to indicate that it received a packet with the ECE flag set.
+							3. NS => 'nonce sum' flag, its used to protect against accidental malicious concealment of packets from the sender.
+					For TCP headers with a single flag, there is one byte per bit and byte 13 contains the following binary values in decimal:
+						Final (FIN) = 1
+						Sync (SYN) = 2
+						Reset (RST) = 4
+						Push (PSH) = 8
+						Acknowledgement (ACK) = 16
+						Urgent (URG) = 32
+						Reserved = 64 and 128 (should be zero)
+					If multiple flags are set for the TCP header, the value of byte 13 is the binary sum of the values for all the bits that are set. For example:
+						FIN, ACK = 17 (1 + 16)
+						SYN, ACK = 18 (2 + 16)
+						PSH, ACK = 24 (8 + 16)
+						FIN, PSH = 9 (1 + 8)
+						FIN, PSH, ACK = 25 (1 + 8 + 16)	
+				Crafting Packets:
+					hping3:
+						Usage:
+							hping3 -S <ip> -p 445 -c 4
+							Flags:
+								-S => send SYN packet
+								-c => count of packets
+								-p => port (default => port 0)
+		TCP Handshake:(3-Way)
+			TCP connections start with 3 way handshake
+			Lets say communication happens between system-A and system-B:
+				Step-1 => syn: seq=isn_a, ack=0
+					Sent from system A to B
+					system A will send a packet having syn(synchronise) flag starting with a random isn(initial seq(sequence) number)
+				Step-2 => syn-ack: seq=isn_b, ack=isn_a+1
+					sent from system B to A
+					system B will then send a packet having syn flag starting with a random isn and an ACK(acknowledgement) flag having isn_a+1
+				Step-3 => ack: seq=isn_a+1, ack=isn_b+1
+					Sent from system A to B
+					system B will then send a packet having syn flag having value isn_a+1 and an ACK(acknowledgement) flag having isn_b+1 
+Network Protocols:
+	IP:(Internet Protocol)
+		Basics:
+			Its responsible for delivering packets from source to destination by looking at the IP addresses in the packet headers
+			Types:
+				Based on network type:
+					Private IP:
+						class A => 10.0.0.0 to 10.255.255.255
+						class B => 172.16.0.0 to 172.31.255.255
+						class C => 192.168.0.0 to 192.168.255.255
+					Public IP:
+				Based on version:
+					IPv4:
+						32-bit address
+					IPv6:
+						128-bit address
+		Windows:
+			ipconfig:
+				output:
+					inet=> IPv4
+					inet6=> IPv6
+					ether=> MAC Address
+					netmask=> subnet mask => TELL COMPUTER HOW MANY IPS WE CAN HAVE
+					broadcast=> last ip
+					network id=> first ip
+		Linux:
+			ipconfig:
+				output:
+					inet=> IPv4
+					inet6=> IPv6
+					ether=> MAC Address
+					netmask=> subnet mask => TELL COMPUTER HOW MANY IPS WE CAN HAVE
+					broadcast=> last ip
+					network id=> first ip
+	ARP:(Address Resolution Protocol)
+		Basics:
+			Its a protcol to connect (dynamic)IP Address(only IPv4) to (Fixed)Physical Machine Address(MAC Address) in a LAN. So, in terms of Networking, ARP works between Physical Layer(Layer 1) and Data Link Layer(Layer 2) of OSI Model.
+			Its a Internet Layer(Layer 2) protocol of TCP/IP Model.
+			Why is ARP necessary?
+				IPv4 is 32 bits
+				MAC is 48 bits
+				This mapping procedure is important because the lengths of the IP and MAC addresses differ, and a translation is needed so that the systems can recognize one another.
+			When Host-A tries to contact Host-B on a LAN network, it needs MAC of Host-B, For that:
+				If ARP Cache contains MAC:
+					Pass it
+				Else:
+					Broadcast an ARP request with IP of Host-B in it and asking for its MAC.
+					When Host-B hears the ARP query, it responds with it's MAC and a conversation will begin using IP.
+		Types of ARP:
+			RARP:(Reverse ARP)
+				Host machines that do not know their own IP address use RARP for discovery.
+			IARP:(Inverse ARP)
+				It uses a MAC address to find an IP address
+			Proxy ARP:
+				Its a technique which is used by a proxy device on a given network to answer the ARP requests for an IP address that is not on that network.
+			Gratuitous ARP:
+				Its an administrative procedure carried out by a host on a network to announce or update its IP-to-MAC address.
+		ARP Routing:
+		ARP Records:
+			Types:
+				ARP Table:(aka ARP Directory)(Static)
+					It keeps a static list of IPv4 address and its matching MAC address
+				ARP Cache:(Dynamic)
+					It keeps a dynamic list of IPv4 address and its matching MAC address
+					ARP Cache Timeout:
+						It indicates the time for which the MAC address in the ARP cache can reside
+			Example:
+				Interface: <My IPv4 of Subnet-A>
+					<IPv4>  <MAC>  Static/Dynamic
+					<IPv4>  <MAC>  Static/Dynamic
+				Interface: <My IPv4 of Subnet-B>
+					<IPv4>  <MAC>  Static/Dynamic
+					<IPv4>  <MAC>  Static/Dynamic					
+			Usage:
+				Windows:
+					arp -a
+				Linux:
+					arp -a
+		Tools:
+			arp-scan
+		Note:
+			Read MITM Sheet to know about ARP-Spoofing
+	NDP:(Neighbor Discovery Protocol)
+		Basics:
+			Provides functionality of ARP for IPv6
+	DHCP:(Dynamic Host Configuration Protocol)
+		Basics:
+	DNS:(Domain Name System)
+		Converts Domain Name to IP Address.
+		Read Active Information Gathering Sheet
+	ICMP:(Internet Control Message Protocol)
+	IGMP:(Internet Group Management Protocol)
+	SLIP:
+	SOCKS: Read Active Information Gathering Sheet
+Network Devices:
+	NIC:(Network Interface Controller)
+	Gateway:
+		It allows data to flow from one network to another
+	Router:
+		They perform Routing(process of selecting a path for traffic in a network or between or across multiple networks is called routing)
+	NAT:(Network Address Translation)
+		Its a way to map multiple local private IP addresses to a single public IP address before transferring the information. Lets say we have 2 devices in a network operated by a NAT, then those two devices will have different private IP inside the network, but one single Public IP given by NAT
+		NAT can be configured to advertise only one address(public IP) for the entire network(Private IP) to the outside world(Internet)
+		In most cases, every device in a network has same Public IP bcoz of NAT.
+		NAT operates on a router
+		Types:
+			A. Static NAT:
+			B. Dynamic NAT:
+			C. PAT:(Port Address Translation)	
+	Bridge:
+		Bridges are Data Link Layer(Layer 2) device and can connect to different networks as well as connect different networks of different types.
+	Switch:
+		Switches do not have an ARP table as they are not equipped to handle IP packets. 
+	HUB:
+	VPN:(Virtual Private Network)
 Subnetting:
 	why is subnetting important?
 		we can figure total hosts
@@ -149,3 +356,35 @@ Subnetting:
 			Broadcast ip => 158.32.2.16
 			1st usable ip => 158.32.2.9
 			last usable ip => 158.32.2.15
+Routing:
+	Basics:
+		The process of selecting a path for traffic in a network or between or across multiple networks is called routing.
+		The process of determining how devices in different networks communicate with each other is called routing.
+		Its performed via routers.
+	Works:	
+		Lets assume, the network looks like this:
+			Subnet-1 -----> Router <----- Subnet-2
+		A device in Subnet-1 sends a packet to some destination, based on destination, the following process is followed:
+			If destination IP is on the local network:
+				Reach the destination.
+			Else:
+				Send it to the gateway(of router), Once the router receives the package, it looks at its own routing table:
+					If routing rule for the destination IP exists:
+						route the package to the destination.
+					Else send to gateway(of router)
+						The same process is repeated in other routers
+	Routing Tables:
+		Windows:
+			route print:
+				Understanding Output:
+					Section-1 => List of Interfaces
+					Section-2 => IPv4 Route Table:
+						<destination_IP>  <netmask>  <Gateway>  <Interface>  <Metric>
+					Section-3 => IPv6 Route Table:
+						<If>  <Metric>  <destination_IP>  <Gateway>
+Switching:
+	Types:
+		Circuit Switching:
+		Packet Switching:
+Tunneling:
+	Tunneling Protocol:
